@@ -1,0 +1,5 @@
+{
+  "name": "PillMatch",
+  "description": "A personal health assistant that helps you check for interactions between your treatments, contraceptives, and supplements.",
+  "requestFramePermissions": []
+}
