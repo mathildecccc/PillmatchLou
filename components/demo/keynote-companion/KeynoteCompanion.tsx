@@ -106,7 +106,7 @@ if (conversationStage === 'AWAITING_CONTRACEPTION') {
             }, 1000);
         }, 1000);
 
-    } else if (matchedBrand && hastimeTime) {
+    else if (matchedBrand && hastimeTime) {
       const isUncertain = /je\s?(ne)?\s?sais\s?pas|je crois|je pense|pas\s?(sûr|sûre)|aucune idée/i.test(currentUserInput.toLowerCase());
         const parts = currentUserInput.split(/(?:\s+à\s+|@|at|vers)\s*/i);
         setContraceptive(parts[0].trim());
