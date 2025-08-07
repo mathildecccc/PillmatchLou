@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { useUser, useUI } from '@/lib/state';
 
-const API_KEY = process.env.GEMINI_API_KEY as string;
+const API_KEY = import.meta.env.VITE_API_KEY;
 
 let ai: GoogleGenAI | null = null;
 if (API_KEY) {
