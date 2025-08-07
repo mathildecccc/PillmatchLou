@@ -88,36 +88,10 @@ if (conversationStage === 'AWAITING_CONTRACEPTION') {
 
   const isContinuous = /diffusion continue|implant|stérilet|patch|anneau/i.test(currentUserInput);
   const knownBrands = ["optilova", "minidril", "leeloo", "jasminelle", "desogestrel", "nora", "optimizette", "trinordiol"];
-  const hasTime = /([01]?[0-9]|2[0-3])h|à\s?[0-9]{1,2}/i.test(currentUserInput);
+  const hastimetimeTime = /([01]?[0-9]|2[0-3])h|à\s?[0-9]{1,2}/i.test(currentUserInput);
   const matchedBrand = knownBrands.find(brand => currentUserInput.toLowerCase().includes(brand));
   const isIDK = /je ne sais pas|aucune idée|pas sûr|pas certaine/i.test(currentUserInput);
 
-  if (isContinuous) {
-    setContraceptive(currentUserInput.trim());
-    setIntakeTime("Diffusion continue");
-    setTimeout(() => {
-      addBotMessage("Merci, tu utilises donc une contraception à **diffusion continue**. C’est bien noté !");
-      setTimeout(() => {
-        addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
-        setIsBotTyping(false);
-        setConversationStage('AWAITING_PRODUCT');
-      }, 1000);
-    }, 1000);
-
-  } else if (matchedBrand && hasTime) {
-    const parts = currentUserInput.split(/ à | at | vers /i);
-    setContraceptive(matchedBrand);
-    setIntakeTime(parts[1] ? parts[1].trim() : '');
-    setTimeout(() => {
-      addBotMessage(`Parfait, tu prends **${matchedBrand}** vers **${parts[1]}**, c’est bien noté !`);
-      setTimeout(() => {
-        addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
-        setIsBotTyping(false)
-
-    
-    const isContinuous = /diffusion continue|implant|stérilet|patch|anneau/i.test(currentUserInput);
-    const hasTime = /([01]?[0-9]|2[0-3])h|à\s?[0-9]{1,2}/i.test(currentUserInput);
-    const hasBrand = /(pilule|optilova|minidril|leeloo|jasminelle|desogestrel|nora|optimizette|estroprogestatif|progestatif)/i.test(currentUserInput);
 
     if (isContinuous) {
         setContraceptive(currentUserInput.trim());
@@ -132,7 +106,8 @@ if (conversationStage === 'AWAITING_CONTRACEPTION') {
             }, 1000);
         }, 1000);
 
-    } else if (hasBrand && hasTime) {
+    } else if (matchedBrand && hastimeTime) {
+      const isUncertain = /je\s?(ne)?\s?sais\s?pas|je crois|je pense|pas\s?(sûr|sûre)|aucune idée/i.test(currentUserInput.toLowerCase());
         const parts = currentUserInput.split(/(?:\s+à\s+|@|at|vers)\s*/i);
         setContraceptive(parts[0].trim());
         setIntakeTime(parts[1] ? parts[1].trim() : '');
