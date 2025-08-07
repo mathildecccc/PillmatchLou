@@ -123,7 +123,7 @@ if (isContinuous) {
 
 } else {
     setTimeout(() => {
-        addBotMessage("Peux-tu me préciser la **marque** ou le **type** exact de ta contraception et l'**heure** à laquelle tu la prends ? Par exemple : _Optilova à 20h_, _Leeloo à 8h_, ou indique s’il s’agit d’une diffusion continue.");
+addBotMessage("Tu peux me dire quelle contraception tu utilises, et à quelle heure tu la prends ? Par exemple : _Leeloo à 8h_, _Optilova à 20h_, ou juste me dire si c’est une diffusion continue 🌸");
         setIsBotTyping(false);
     }, 1000);
 }
