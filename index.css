@@ -97,6 +97,12 @@ header {
   position: relative;
   z-index: 1;
 }
+/* Élargissement automatique sur grands écrans */
+@media (min-width: 1024px) {
+  .chat-container {
+    max-width: 1000px;
+    padding: 2rem 3rem;
+  }
 
 .lou-character-container {
   position: absolute;
