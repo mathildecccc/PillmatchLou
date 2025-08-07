@@ -93,31 +93,49 @@ if (conversationStage === 'AWAITING_CONTRACEPTION') {
   const isIDK = /je ne sais pas|aucune idée|pas sûr|pas certaine/i.test(currentUserInput);
 
 
-    if (isContinuous) {
-        setContraceptive(currentUserInput.trim());
-        setIntakeTime("Diffusion continue");
+if (isContinuous) {
+    setContraceptive(currentUserInput.trim());
+    setIntakeTime("Diffusion continue");
 
+    setTimeout(() => {
+        addBotMessage("Merci, tu utilises donc une contraception à diffusion continue. C’est bien noté !");
         setTimeout(() => {
-            addBotMessage("Merci, tu utilises donc une contraception à diffusion continue. C’est bien noté !");
-            setTimeout(() => {
-                addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
-                setIsBotTyping(false);
-                setConversationStage('AWAITING_PRODUCT');
-            }, 1000);
+            addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
+            setIsBotTyping(false);
+            setConversationStage('AWAITING_PRODUCT');
         }, 1000);
-    }
-    else if (matchedBrand && hastimeTime) {
-      const isUncertain = /je\s?(ne)?\s?sais\s?pas|je crois|je pense|pas\s?(sûr|sûre)|aucune idée/i.test(currentUserInput.toLowerCase());
-        const parts = currentUserInput.split(/(?:\s+à\s+|@|at|vers)\s*/i);
-        setContraceptive(parts[0].trim());
-        setIntakeTime(parts[1] ? parts[1].trim() : '');
+    }, 1000);
 
+} else if (matchedBrand && hastimeTime) {
+    const isUncertain = /je\s?(ne)?\s?sais\s?pas|je crois|je pense|pas\s?(sûr|sûre)|aucune idée/i.test(currentUserInput.toLowerCase());
+    const parts = currentUserInput.split(/(?:\s+à\s+|@|at|vers)\s*/i);
+    setContraceptive(parts[0].trim());
+    setIntakeTime(parts[1] ? parts[1].trim() : '');
+
+    setTimeout(() => {
+        addBotMessage("Parfait, c’est noté !");
         setTimeout(() => {
-            addBotMessage("Parfait, c’est noté !");
-            setTimeout(() => {
-                addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
-                setIsBotTyping(false);
-                setConversationStage('AWAITING_PRODUCT');
+            addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
+            setIsBotTyping(false);
+            setConversationStage('AWAITING_PRODUCT');
+        }, 1000);
+    }, 1000);
+
+} else {
+    setTimeout(() => {
+        addBotMessage("Peux-tu me préciser la **marque** ou le **type** exact de ta contraception et l'**heure** à laquelle tu la prends ? Par exemple : _Optilova à 20h_, _Leeloo à 8h_, ou indique s’il s’agit d’une diffusion continue.");
+        setIsBotTyping(false);
+    }, 1000);
+}
+
+// 👇 CE ELSE IF LÀ est en-dehors du bloc ci-dessus, donc il est bien placé
+} else if (conversationStage === 'AWAITING_PRODUCT') {
+    setConversationStage('PROCESSING');
+    setIsBotTyping(true);
+    await handleCheckInteraction(currentUserInput);
+    setIsBotTyping(false);
+    setConversationStage('AWAITING_PRODUCT');
+}
             }, 1000);
         }, 1000);
 
