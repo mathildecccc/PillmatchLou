@@ -83,22 +83,47 @@ export default function PillMatchChat() {
     const currentUserInput = inputValue;
     setInputValue('');
 
-    if (conversationStage === 'AWAITING_CONTRACEPTION') {
-        setConversationStage('PROCESSING');
-        setIsBotTyping(true);
-        // Simple parsing for demo purposes
-        const parts = currentUserInput.split(/ à | at /i);
-        setContraceptive(parts[0].trim());
-        setIntakeTime(parts[1] ? parts[1].trim() : 'Continue');
+if (conversationStage === 'AWAITING_CONTRACEPTION') {
+    setIsBotTyping(true);
+    
+    const isContinuous = /diffusion continue|implant|stérilet|patch|anneau/i.test(currentUserInput);
+    const hasTime = /([01]?[0-9]|2[0-3])h|à\s?[0-9]{1,2}/i.test(currentUserInput);
+    const hasBrand = /(pilule|optilova|minidril|leeloo|jasminelle|desogestrel|nora|optimizette|estroprogestatif|progestatif)/i.test(currentUserInput);
+
+    if (isContinuous) {
+        setContraceptive(currentUserInput.trim());
+        setIntakeTime("Diffusion continue");
 
         setTimeout(() => {
-            addBotMessage("Parfait, c'est noté !");
+            addBotMessage("Merci, tu utilises donc une contraception à diffusion continue. C’est bien noté !");
             setTimeout(() => {
-                addBotMessage("Maintenant, quel médicament, complément ou plante souhaites-tu vérifier ?");
+                addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
                 setIsBotTyping(false);
                 setConversationStage('AWAITING_PRODUCT');
             }, 1000);
         }, 1000);
+
+    } else if (hasBrand && hasTime) {
+        const parts = currentUserInput.split(/ à | at /i);
+        setContraceptive(parts[0].trim());
+        setIntakeTime(parts[1] ? parts[1].trim() : '');
+
+        setTimeout(() => {
+            addBotMessage("Parfait, c’est noté !");
+            setTimeout(() => {
+                addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
+                setIsBotTyping(false);
+                setConversationStage('AWAITING_PRODUCT');
+            }, 1000);
+        }, 1000);
+
+    } else {
+        setTimeout(() => {
+            addBotMessage("Peux-tu me préciser la **marque** ou le **type** exact de ta contraception et l'**heure** à laquelle tu la prends ? Par exemple : _Optilova à 20h_, _Leeloo à 8h_, ou indique s’il s’agit d’une diffusion continue.");
+            setIsBotTyping(false);
+        }, 1000);
+    }
+}
     } else if (conversationStage === 'AWAITING_PRODUCT') {
         setConversationStage('PROCESSING');
         setIsBotTyping(true);
