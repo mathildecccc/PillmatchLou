@@ -68,7 +68,11 @@ function editDistance(a: string, b: string) {
   for (let i = 1; i <= al; i++) {
     for (let j = 1; j <= bl; j++) {
       const cost = A[i - 1] === B[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
       if (i > 1 && j > 1 && A[i - 1] === B[j - 2] && A[i - 2] === B[j - 1]) {
         dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1);
       }
@@ -239,7 +243,7 @@ export default function KeynoteCompanion() {
   const { contraceptive, intakeTime, setContraceptive, setIntakeTime } = useUser();
   const { isBotTyping, setIsBotTyping } = useUI();
 
-  // ✅ seed des 2 messages de bienvenue dans l’état initial
+  // ✅ seed des 2 messages de bienvenue
   const [messages, setMessages] = useState<Message[]>([
     { id: uid(), sender: "bot", text: "Bonjour ! Je suis Lou, ton assistante personnelle de santé 🤝" },
     { id: uid(), sender: "bot", text: "Quelle contraception utilises-tu, et à quelle heure tu la prends ? (ou dis-moi si c’est une diffusion continue) ⏰" },
@@ -248,7 +252,7 @@ export default function KeynoteCompanion() {
   const [conversationStage, setConversationStage] = useState<ConversationStage>("AWAITING_CONTRACEPTION");
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-  // 🔒 refs qui suivent la valeur RÉELLE au moment du submit
+  // 🔒 refs “source de vérité” au moment du submit
   const contraceptiveRef = useRef<string | undefined>(contraceptive);
   const intakeTimeRef   = useRef<string | undefined>(intakeTime);
   useEffect(() => { contraceptiveRef.current = contraceptive; }, [contraceptive]);
@@ -495,101 +499,104 @@ Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Le
         </div>
       )}
 
-      <div className="messages-list">
-        {messages.map((msg) => (
-          <div key={msg.id} className={`message-bubble ${msg.sender === "bot" ? "bot-message" : "user-message"}`}>
-            {msg.text && <p>{msg.text}</p>}
-            {msg.analysis && (
-              <div className={`analysis-card level-${msg.analysis.interactionLevel}`}>
-                <div className="analysis-header">
-                  <span className="level-emoji" aria-hidden>{badgeMeta(msg.analysis.interactionLevel).emoji}</span>
-                  <div className="header-text">
-                    <h4>Niveau d'interaction : {badgeMeta(msg.analysis.interactionLevel).label}</h4>
-                    <h5>{msg.analysis.title}</h5>
-                  </div>
-                </div>
-
-                {(intakeTimeRef.current?.toLowerCase().includes("diffusion") ||
-                  /implant|anneau|patch|stérilet|sterilet/i.test(contraceptiveRef.current || "")) && (
-                    <div className="analysis-section hint">
-                      <strong>Contexte :</strong>{" "}
-                      <span>Ta contraception est à diffusion continue. Les recommandations en tiennent compte. ✨</span>
+      {/* ✅ Conteneur flex qui remplit la hauteur dispo sous le header */}
+      <div className="chat-container">
+        <div className="messages-list">
+          {messages.map((msg) => (
+            <div key={msg.id} className={`message-bubble ${msg.sender === "bot" ? "bot-message" : "user-message"}`}>
+              {msg.text && <p>{msg.text}</p>}
+              {msg.analysis && (
+                <div className={`analysis-card level-${msg.analysis.interactionLevel}`}>
+                  <div className="analysis-header">
+                    <span className="level-emoji" aria-hidden>{badgeMeta(msg.analysis.interactionLevel).emoji}</span>
+                    <div className="header-text">
+                      <h4>Niveau d'interaction : {badgeMeta(msg.analysis.interactionLevel).label}</h4>
+                      <h5>{msg.analysis.title}</h5>
                     </div>
-                )}
+                  </div>
 
-                {msg.analysis.interactionLevel === "grave" && (
-                  <div className="analysis-section redflag">
-                    <strong>⚠️ À faire maintenant</strong>
+                  {(intakeTimeRef.current?.toLowerCase().includes("diffusion") ||
+                    /implant|anneau|patch|stérilet|sterilet/i.test(contraceptiveRef.current || "")) && (
+                      <div className="analysis-section hint">
+                        <strong>Contexte :</strong>{" "}
+                        <span>Ta contraception est à diffusion continue. Les recommandations en tiennent compte. ✨</span>
+                      </div>
+                  )}
+
+                  {msg.analysis.interactionLevel === "grave" && (
+                    <div className="analysis-section redflag">
+                      <strong>⚠️ À faire maintenant</strong>
+                      <ul>
+                        <li>Évite l’association ou utilise une méthode barrière pendant la prise.</li>
+                        <li>Continue la protection <em>après</em> l’arrêt (voir timing ci-dessous).</li>
+                        <li>
+                          Si rapport non protégé récent : renseigne-toi sur la{" "}
+                          <a href="https://www.choisirsacontraception.fr/la-contraception/contraception-durgence/" target="_blank" rel="noopener noreferrer">
+                            contraception d’urgence
+                          </a>.
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="analysis-section">
+                    <strong>Pourquoi ?</strong>
+                    <p>{msg.analysis.explanation}</p>
+                  </div>
+
+                  <div className="analysis-section">
+                    <strong>Impact sur ta contraception</strong>
+                    <p>{msg.analysis.contraceptionImpact}</p>
+                  </div>
+
+                  <div className="analysis-section recommendation">
+                    <strong>Recommandation</strong>
+                    <p>{msg.analysis.recommendation.timing}</p>
+                    {msg.analysis.recommendation.alternative && msg.analysis.recommendation.alternative.trim() && (
+                      <p><strong>Alternative : </strong>{msg.analysis.recommendation.alternative}</p>
+                    )}
+                  </div>
+
+                  <div className="analysis-section sources">
+                    <p><strong>Sources : </strong>{msg.analysis.scientificBasis}</p>
                     <ul>
-                      <li>Évite l’association ou utilise une méthode barrière pendant la prise.</li>
-                      <li>Continue la protection <em>après</em> l’arrêt (voir timing ci-dessous).</li>
-                      <li>
-                        Si rapport non protégé récent : renseigne-toi sur la{" "}
-                        <a href="https://www.choisirsacontraception.fr/la-contraception/contraception-durgence/" target="_blank" rel="noopener noreferrer">
-                          contraception d’urgence
-                        </a>.
-                      </li>
+                      {msg.analysis.sources
+                        .filter((s) => typeof s?.url === "string" && /^https?:\/\//i.test(s.url))
+                        .map((source) => (
+                          <li key={`${source.name}-${source.url}`}>
+                            <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>
+                          </li>
+                        ))}
                     </ul>
                   </div>
-                )}
-
-                <div className="analysis-section">
-                  <strong>Pourquoi ?</strong>
-                  <p>{msg.analysis.explanation}</p>
                 </div>
+              )}
+            </div>
+          ))}
+          {isBotTyping && (
+            <div className="message-bubble bot-message">
+              <div className="typing-indicator"><span></span><span></span><span></span></div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-                <div className="analysis-section">
-                  <strong>Impact sur ta contraception</strong>
-                  <p>{msg.analysis.contraceptionImpact}</p>
-                </div>
+        <form className="chat-input-form" onSubmit={handleSendMessage}>
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={isBotTyping ? "Lou est en train d'écrire..." : "Écris ton message..."}
+            disabled={isBotTyping || conversationStage === "GREETING" || !ai}
+            aria-label="Zone de saisie du message"
+          />
+          <button type="submit" disabled={!inputValue.trim() || isBotTyping || !ai} aria-label="Envoyer">
+            <span className="icon">send</span>
+          </button>
+        </form>
 
-                <div className="analysis-section recommendation">
-                  <strong>Recommandation</strong>
-                  <p>{msg.analysis.recommendation.timing}</p>
-                  {msg.analysis.recommendation.alternative && msg.analysis.recommendation.alternative.trim() && (
-                    <p><strong>Alternative : </strong>{msg.analysis.recommendation.alternative}</p>
-                  )}
-                </div>
-
-                <div className="analysis-section sources">
-                  <p><strong>Sources : </strong>{msg.analysis.scientificBasis}</p>
-                  <ul>
-                    {msg.analysis.sources
-                      .filter((s) => typeof s?.url === "string" && /^https?:\/\//i.test(s.url))
-                      .map((source) => (
-                        <li key={`${source.name}-${source.url}`}>
-                          <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-        {isBotTyping && (
-          <div className="message-bubble bot-message">
-            <div className="typing-indicator"><span></span><span></span><span></span></div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
+        <p className="pm-privacy">Tes infos restent privées. Ce service ne remplace pas l’avis d’un professionnel de santé.</p>
       </div>
-
-      <form className="chat-input-form" onSubmit={handleSendMessage}>
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder={isBotTyping ? "Lou est en train d'écrire..." : "Écris ton message..."}
-          disabled={isBotTyping || conversationStage === "GREETING" || !ai}
-          aria-label="Zone de saisie du message"
-        />
-        <button type="submit" disabled={!inputValue.trim() || isBotTyping || !ai} aria-label="Envoyer">
-          <span className="icon">send</span>
-        </button>
-      </form>
-
-      <p className="pm-privacy">Tes infos restent privées. Ce service ne remplace pas l’avis d’un professionnel de santé.</p>
     </div>
   );
 }
