@@ -71,7 +71,7 @@ export default function PillMatchChat() {
           setIsBotTyping(false);
           setConversationStage('AWAITING_CONTRACEPTION');
         }, 1200);
-      }, 1000);
+      }, 800);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -104,30 +104,25 @@ export default function PillMatchChat() {
     if (conversationStage === 'AWAITING_CONTRACEPTION') {
       setIsBotTyping(true);
 
-      const isContinuous = /diffusion continue|implant|stérilet|sterilet|patch|anneau/i.test(
-        currentUserInput
-      );
+      // Détection diffusion continue (implant/DIU hormoné/patch/anneau…)
+      const isContinuous =
+        /diffusion continue|implant|stérilet|sterilet|patch|anneau/i.test(currentUserInput);
 
-      // 1) Heure : "à 8h", "8 h", "07h30", "vers 20h", etc.
+      // Heure : "à 8h", "8 h", "07h30", "vers 20h", etc.
       const timeMatch = currentUserInput.match(
         /(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/i
       );
-      const timeText = timeMatch
-        ? `${timeMatch[1]}h${timeMatch[2] ? timeMatch[2] : ''}`
-        : '';
+      const timeText = timeMatch ? `${timeMatch[1]}h${timeMatch[2] ? timeMatch[2] : ''}` : '';
 
-      // 2) "Marque/type" = texte - heure - mots parasites
+      // Marque/type = texte - heure - mots parasites
       let brandRaw = currentUserInput
-        .replace(
-          /(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/gi,
-          ''
-        )
+        .replace(/(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/gi, '')
         .replace(/\bet\b/gi, ' ')
         .replace(/[,\.;:]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 
-      // 3) Normalisation simple (ajoute au besoin)
+      // Normalisation simple (complète au besoin)
       const normalizeMap: Record<string, string> = {
         'ludeal g': 'Ludéal Gé',
         'ludeal ge': 'Ludéal Gé',
@@ -143,66 +138,91 @@ export default function PillMatchChat() {
       const key = brandRaw.toLowerCase();
       const brand = normalizeMap[key] || brandRaw;
 
+      // 1) Cas diffusion continue
       if (isContinuous) {
         setContraceptive(brand || 'Contraception à diffusion continue');
         setIntakeTime('Diffusion continue');
         setTimeout(() => {
-          addBotMessage(
-            'Merci, tu utilises donc une contraception à diffusion continue. C’est bien noté !'
-          );
+          addBotMessage('Merci, tu utilises une contraception à diffusion continue. C’est noté !');
           setTimeout(() => {
-            addBotMessage(
-              'Quel médicament, complément ou plante souhaites-tu vérifier ?'
-            );
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
             setIsBotTyping(false);
             setConversationStage('AWAITING_PRODUCT');
-          }, 800);
-        }, 600);
+          }, 600);
+        }, 400);
         return;
       }
 
+      // 2) Si on a déjà une moitié en mémoire, complète
+      if (!brand && timeText && contraceptive && !intakeTime) {
+        setIntakeTime(timeText);
+        setTimeout(() => {
+          addBotMessage(`Parfait, c’est noté : ${contraceptive} à ${timeText} ✅`);
+          setTimeout(() => {
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
+            setIsBotTyping(false);
+            setConversationStage('AWAITING_PRODUCT');
+          }, 600);
+        }, 400);
+        return;
+      }
+      if (brand && !timeText && !contraceptive && intakeTime) {
+        setContraceptive(brand);
+        setTimeout(() => {
+          addBotMessage(`Parfait, c’est noté : ${brand} à ${intakeTime} ✅`);
+          setTimeout(() => {
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
+            setIsBotTyping(false);
+            setConversationStage('AWAITING_PRODUCT');
+          }, 600);
+        }, 400);
+        return;
+      }
+
+      // 3) Cas "marque + heure" dans le même message
       if (brand && timeText) {
         setContraceptive(brand);
         setIntakeTime(timeText);
         setTimeout(() => {
-          addBotMessage(`Parfait, c’est noté : **${brand}** à **${timeText}** ✅`);
+          addBotMessage(`Parfait, c’est noté : ${brand} à ${timeText} ✅`);
           setTimeout(() => {
-            addBotMessage(
-              'Quel médicament, complément ou plante souhaites-tu vérifier ?'
-            );
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
             setIsBotTyping(false);
             setConversationStage('AWAITING_PRODUCT');
-          }, 800);
-        }, 600);
+          }, 600);
+        }, 400);
         return;
       }
 
+      // 4) Cas "marque seule" -> on mémorise la marque et on demande l’heure
       if (brand && !timeText) {
+        setContraceptive(brand);
         setTimeout(() => {
-          addBotMessage(
-            `Super, tu utilises **${brand}**. Peux-tu me dire **à quelle heure** tu la prends ? (ex : 8h ou 20h)`
-          );
+          addBotMessage(`Super, tu utilises ${brand}. À quelle heure la prends-tu ? (ex : 8h ou 20h)`);
           setIsBotTyping(false);
-        }, 600);
+        }, 400);
         return;
       }
 
+      // 5) Cas "heure seule" -> on mémorise l’heure et on demande la marque
       if (!brand && timeText) {
+        setIntakeTime(timeText);
         setTimeout(() => {
           addBotMessage(
-            `Merci ! Et peux-tu me préciser **la marque** ou **le type** de ta contraception ? (ex : Leeloo, Optilova, implant, etc.)`
+            'Merci ! Et peux-tu me préciser la marque ou le type de ta contraception ? (ex : Leeloo, Optilova, implant, etc.)'
           );
           setIsBotTyping(false);
-        }, 600);
+        }, 400);
         return;
       }
 
+      // 6) Fallback
       setTimeout(() => {
         addBotMessage(
-          'Tu peux me dire **la marque/type** de ta contraception **et** l’**heure** de prise ? Par ex. : _Leeloo à 8h_, _Optilova à 20h_, ou _implant (diffusion continue)_.'
+          'Tu peux me dire la marque/type de ta contraception ET l’heure de prise ? Par ex. : Leeloo à 8h, Optilova à 20h, ou implant (diffusion continue).'
         );
         setIsBotTyping(false);
-      }, 600);
+      }, 400);
       return;
     }
 
@@ -211,12 +231,12 @@ export default function PillMatchChat() {
       setIsBotTyping(true);
       await handleCheckInteraction(currentUserInput);
       setIsBotTyping(false);
-      setConversationStage('AWAITING_PRODUCT');
+      setConversationStage('AWAITING_PRODUCT'); // prêt pour la suite
       return;
     }
   };
 
-  // -------- helpers parsing --------
+  // -------- helpers parsing Gemini --------
   function stripCodeFences(s: string) {
     const fenceRegex = /^```(?:json)?\s*([\s\S]*?)\s*```$/i;
     const m = s.match(fenceRegex);
@@ -240,7 +260,7 @@ export default function PillMatchChat() {
   const handleCheckInteraction = async (product: string) => {
     if (!ai) {
       addBotMessage(
-        "Désolée, je ne peux pas effectuer de vérification pour le moment. Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY)."
+        'Désolée, je ne peux pas effectuer de vérification pour le moment. Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY).'
       );
       return;
     }
@@ -284,7 +304,7 @@ RULES:
         config: { responseMimeType: 'application/json' },
       });
 
-      // Selon version du SDK
+      // Compat différentes versions de SDK
       const rawText =
         (response as any)?.text?.trim?.() ||
         (response as any)?.response?.text?.()?.trim?.() ||
@@ -292,9 +312,7 @@ RULES:
 
       if (!rawText) {
         console.error('Réponse vide/inattendue:', response);
-        addBotMessage(
-          "Désolée, je n’ai pas réussi à traiter la réponse. Réessaie dans un instant."
-        );
+        addBotMessage("Désolée, je n’ai pas réussi à traiter la réponse. Réessaie dans un instant.");
         return;
       }
 
@@ -363,8 +381,7 @@ RULES:
                   </span>
                   <div className="header-text">
                     <h4>
-                      Niveau d'interaction :{' '}
-                      {getStatusIcon(msg.analysis.interactionLevel).label}
+                      Niveau d'interaction : {getStatusIcon(msg.analysis.interactionLevel).label}
                     </h4>
                     <h5>{msg.analysis.title}</h5>
                   </div>
