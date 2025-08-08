@@ -414,3 +414,79 @@ header {
 .sources a:hover {
   text-decoration: underline;
 }
+/* ==== PillMatch additions (à coller en bas) ==== */
+
+/* Header enrichi */
+.pm-header { background: var(--header-bg); }
+.pm-header__inner {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 18px 16px 10px;
+  text-align: center;
+}
+.pm-title {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: .4px;
+  color: #d83c7d; /* un rose un peu plus soutenu pour du contraste */
+}
+.pm-tagline {
+  margin: 6px 0 0;
+  color: var(--gray-800);
+  font-size: 0.98rem;
+  opacity: .9;
+}
+.pm-tagline__addon { font-weight: 600; }
+
+/* Chips d’exemples sous le header */
+.pm-examples {
+  max-width: 980px;
+  margin: 8px auto 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 16px;
+}
+.pm-examples button {
+  border: 0;
+  background: #ffd9e6;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font: inherit;
+  color: #7a3a57;
+}
+.pm-examples button:hover { background: #ffc9db; }
+
+/* Encarts “contexte” et “red flag” dans la carte d’analyse */
+.analysis-section.hint {
+  background: #fff6fa;
+  border: 1px dashed #f2b6cc;
+  padding: 8px;
+  border-radius: 8px;
+}
+.analysis-section.redflag {
+  background: #fff2f4;
+  border-left: 4px solid #e0245e;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.analysis-section.redflag ul { margin: 6px 0 0 18px; }
+
+/* Petite ligne vie privée */
+.pm-privacy {
+  text-align: center;
+  font-size: .85rem;
+  color: var(--gray-800);
+  opacity: .8;
+  margin: 12px 0 24px;
+}
+
+/* Tweaks mobile */
+@media (max-width: 600px) {
+  .pm-header__inner { padding: 14px 12px 8px; }
+  .pm-title { font-size: 20px; }
+  .pm-tagline { font-size: 13px; }
+  .pm-examples { padding: 0 12px; gap: 6px; }
+  .pm-examples button { padding: 5px 10px; }
+}
