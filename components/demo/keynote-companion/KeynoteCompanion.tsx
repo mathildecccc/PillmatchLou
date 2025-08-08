@@ -33,8 +33,10 @@ type Message = {
   analysis?: InteractionResult;
 };
 
+type InteractionLevel = 'faible' | 'moyen' | 'grave' | 'inconnu';
+
 type InteractionResult = {
-  interactionLevel: 'faible' | 'moyen' | 'grave' | 'inconnu';
+  interactionLevel: InteractionLevel;
   title: string;
   explanation: string;
   scientificBasis: string;
@@ -45,6 +47,21 @@ type InteractionResult = {
     alternative: string;
   };
 };
+
+// -------------- Helpers: emojis & badges --------------
+function badgeMeta(level: InteractionLevel) {
+  switch (level) {
+    case 'faible':
+      return { emoji: '🟢', icon: 'check_circle', label: 'Faible' };
+    case 'moyen':
+      return { emoji: '🟠', icon: 'warning', label: 'Modérée' };
+    case 'grave':
+      return { emoji: '🔴', icon: 'error', label: 'Élevée' };
+    case 'inconnu':
+    default:
+      return { emoji: '⚪', icon: 'help', label: 'Inconnue' };
+  }
+}
 
 // -------------- Normalisation produit + KB locale --------------
 function normalizeProduct(raw: string): { canonical: string; synonyms: string[] } {
@@ -60,7 +77,7 @@ function normalizeProduct(raw: string): { canonical: string; synonyms: string[] 
     { canonical: 'lévothyroxine', synonyms: ['levothyrox', 'lévothyrox', 'levothyroxine', 'levothyrox®'] },
     { canonical: 'amoxicilline', synonyms: ['amoxicilline', 'amoxicillin'] },
     { canonical: 'vitamine c (acide ascorbique)', synonyms: ['vitamine c', 'acide ascorbique', 'vit c'] },
-    { canonical: 'collagène', synonyms: ['collagene', 'cure collagène', 'luxéol 3 mois', 'luxeol'] },
+    { canonical: 'collagène', synonyms: ['collagene', 'cure collagène', 'luxéol 3 mois', 'luxeol', 'luxéol'] },
   ];
 
   for (const row of table) {
@@ -94,27 +111,27 @@ const LOCAL_KB: Record<string, KBItem> = {
     interactionLevel: 'grave',
     title: "Millepertuis et contraception : interaction majeure",
     explanation:
-      "Le millepertuis active des systèmes d’élimination des médicaments (CYP3A4, P-gp). Les hormones de la pilule sont éliminées plus vite → efficacité réduite.",
-    scientificBasis: 'Interaction bien documentée (alertes officielles).',
+      "Le millepertuis accélère l’élimination de nombreux médicaments (CYP3A4, P-gp). Les hormones de la pilule sont éliminées plus vite → efficacité réduite.",
+    scientificBasis: 'Interaction bien documentée par les agences de santé.',
     sources: [
       { name: 'ANSM – Avertissements Millepertuis', url: 'https://ansm.sante.fr' },
-      { name: 'EMA – Herbal monograph: St John’s wort', url: 'https://www.ema.europa.eu' },
+      { name: 'EMA – Monograph: St John’s wort', url: 'https://www.ema.europa.eu' },
     ],
     contraceptionImpact:
       "Baisse des taux hormonaux → risque de grossesse.",
     recommendation: {
       timing:
-        "Évite l’association. Si déjà pris, utilises une méthode barrière pendant le traitement et 2 semaines après l’arrêt.",
+        "Évite l’association. Si déjà pris : préservatif pendant toute la prise + 2 semaines après l’arrêt.",
       alternative:
-        "Préférer des options non inductrices pour l’humeur/sommeil (ex. magnésium, mélatonine courte durée) — à valider avec un pro de santé.",
+        "Options non inductrices pour l’humeur/sommeil (ex. magnésium, mélatonine courte durée) — à valider avec un pro de santé.",
     },
   },
   rifampicine: {
     interactionLevel: 'grave',
     title: 'Rifampicine et contraception : interaction majeure',
     explanation:
-      "Puissant inducteur enzymatique : les concentrations d’ethinylestradiol/progestatifs chutent fortement.",
-    scientificBasis: 'Interaction classique, bien connue.',
+      "Puissant inducteur enzymatique : les concentrations d’éthinylestradiol/progestatifs chutent fortement.",
+    scientificBasis: 'Interaction classique et bien connue.',
     sources: [
       { name: 'ANSM – Rifampicine', url: 'https://ansm.sante.fr' },
       { name: 'Vidal – Interactions rifampicine', url: 'https://www.vidal.fr' },
@@ -122,7 +139,7 @@ const LOCAL_KB: Record<string, KBItem> = {
     contraceptionImpact: 'Risque élevé d’échec contraceptif.',
     recommendation: {
       timing:
-        "Éviter avec les pilules classiques. Utiliser une méthode alternative (DIU, injectable) ou double protection durant et 4 semaines après.",
+        "Éviter avec les pilules classiques. Utiliser double protection durant la cure + 4 semaines après.",
       alternative:
         "Méthodes moins dépendantes du CYP (DIU cuivre/hormonal) — à discuter avec un pro.",
     },
@@ -153,7 +170,7 @@ const LOCAL_KB: Record<string, KBItem> = {
     contraceptionImpact: 'Risque de moindre absorption si prises concomitantes.',
     recommendation: {
       timing:
-        'Espace d’au moins 3 à 4 heures avec la pilule. Si prises trop proches, utilise une méthode barrière 7 jours.',
+        'Sépare d’au moins 3–4 heures avec la pilule. Si prises trop proches : préservatif 7 jours.',
       alternative: '',
     },
   },
@@ -161,7 +178,7 @@ const LOCAL_KB: Record<string, KBItem> = {
     interactionLevel: 'faible',
     title: "Vitamine C et contraception : pas d'interaction significative",
     explanation:
-      "Aux doses usuelles, la vitamine C n’induit ni n’inhibe de façon notable les voies métaboliques des estroprogestatifs.",
+      "Aux doses usuelles, la vitamine C n’induit ni n’inhibe de façon notable le métabolisme des estroprogestatifs.",
     scientificBasis: 'Absence de signal d’interaction dans les bases majeures.',
     sources: [
       { name: 'ANSM – Vitamine C', url: 'https://ansm.sante.fr' },
@@ -174,7 +191,7 @@ const LOCAL_KB: Record<string, KBItem> = {
     interactionLevel: 'faible',
     title: "Collagène et contraception : pas d'interaction attendue",
     explanation:
-      "Le collagène est une protéine (ou peptides) sans effet inducteur/inhibiteur documenté sur le métabolisme des hormones de la pilule.",
+      "Le collagène est une protéine/peptides sans effet inducteur ou inhibiteur documenté sur le métabolisme des hormones de la pilule.",
     scientificBasis: 'Absence de signal d’interaction dans la littérature et bases.',
     sources: [
       { name: 'ANSM – Compléments', url: 'https://ansm.sante.fr' },
@@ -185,7 +202,7 @@ const LOCAL_KB: Record<string, KBItem> = {
   },
 };
 
-// -------------- Composant --------------
+// -------------- Component --------------
 export default function PillMatchChat() {
   const { contraceptive, intakeTime, setContraceptive, setIntakeTime } = useUser();
   const { isBotTyping, setIsBotTyping } = useUI();
@@ -205,15 +222,15 @@ export default function PillMatchChat() {
     if (conversationStage === 'GREETING') {
       setIsBotTyping(true);
       setTimeout(() => {
-        addBotMessage('Bonjour ! Je suis Lou, ton assistante personnelle de santé.');
+        addBotMessage('Bonjour ! Je suis Lou, ton assistante personnelle de santé 🤝');
         setTimeout(() => {
           addBotMessage(
-            'Quelle contraception hormonale utilises-tu et à quelle heure la prends-tu (ou est-ce une diffusion continue) ?'
+            'Quelle contraception hormonale utilises-tu, et à quelle heure tu la prends ? (ou dis-moi si c’est une diffusion continue) ⏰'
           );
           setIsBotTyping(false);
           setConversationStage('AWAITING_CONTRACEPTION');
-        }, 1200);
-      }, 800);
+        }, 1000);
+      }, 600);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -235,7 +252,7 @@ export default function PillMatchChat() {
     return newUserMessage;
   };
 
-  // ----------- Envoi message -----------
+  // ----------- Send message -----------
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isBotTyping) return;
@@ -247,7 +264,7 @@ export default function PillMatchChat() {
     if (conversationStage === 'AWAITING_CONTRACEPTION') {
       setIsBotTyping(true);
 
-      // Diffusion continue (implant/DIU hormoné/patch/anneau…)
+      // Diffusion continue
       const isContinuous =
         /diffusion continue|implant|stérilet|sterilet|patch|anneau/i.test(currentUserInput);
 
@@ -269,14 +286,14 @@ export default function PillMatchChat() {
       const normalizeMap: Record<string, string> = {
         'ludeal g': 'Ludéal Gé',
         'ludeal ge': 'Ludéal Gé',
-        ludeal: 'Ludéal Gé',
-        leeloo: 'Leeloo',
-        optilova: 'Optilova',
-        minidril: 'Minidril',
-        jasminelle: 'Jasminelle',
-        desogestrel: 'Désogestrel',
-        optimizette: 'Optimizette',
-        trinordiol: 'Trinordiol',
+        'ludeal': 'Ludéal Gé',
+        'leeloo': 'Leeloo',
+        'optilova': 'Optilova',
+        'minidril': 'Minidril',
+        'jasminelle': 'Jasminelle',
+        'desogestrel': 'Désogestrel',
+        'optimizette': 'Optimizette',
+        'trinordiol': 'Trinordiol',
       };
       const key = brandRaw.toLowerCase();
       const brand = normalizeMap[key] || brandRaw;
@@ -286,13 +303,13 @@ export default function PillMatchChat() {
         setContraceptive(brand || 'Contraception à diffusion continue');
         setIntakeTime('Diffusion continue');
         setTimeout(() => {
-          addBotMessage('Merci, tu utilises une contraception à diffusion continue. C’est noté !');
+          addBotMessage('Merci, tu utilises une contraception à diffusion continue. C’est noté ✅');
           setTimeout(() => {
-            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ? 🌿💊');
             setIsBotTyping(false);
             setConversationStage('AWAITING_PRODUCT');
-          }, 600);
-        }, 400);
+          }, 500);
+        }, 300);
         return;
       }
 
@@ -302,11 +319,11 @@ export default function PillMatchChat() {
         setTimeout(() => {
           addBotMessage(`Parfait, c’est noté : ${contraceptive} à ${timeText} ✅`);
           setTimeout(() => {
-            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ? 🌿💊');
             setIsBotTyping(false);
             setConversationStage('AWAITING_PRODUCT');
-          }, 600);
-        }, 400);
+          }, 500);
+        }, 300);
         return;
       }
       if (brand && !timeText && !contraceptive && intakeTime) {
@@ -314,11 +331,11 @@ export default function PillMatchChat() {
         setTimeout(() => {
           addBotMessage(`Parfait, c’est noté : ${brand} à ${intakeTime} ✅`);
           setTimeout(() => {
-            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ? 🌿💊');
             setIsBotTyping(false);
             setConversationStage('AWAITING_PRODUCT');
-          }, 600);
-        }, 400);
+          }, 500);
+        }, 300);
         return;
       }
 
@@ -329,11 +346,11 @@ export default function PillMatchChat() {
         setTimeout(() => {
           addBotMessage(`Parfait, c’est noté : ${brand} à ${timeText} ✅`);
           setTimeout(() => {
-            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ?');
+            addBotMessage('Quel médicament, complément ou plante souhaites-tu vérifier ? 🌿💊');
             setIsBotTyping(false);
             setConversationStage('AWAITING_PRODUCT');
-          }, 600);
-        }, 400);
+          }, 500);
+        }, 300);
         return;
       }
 
@@ -341,9 +358,9 @@ export default function PillMatchChat() {
       if (brand && !timeText) {
         setContraceptive(brand);
         setTimeout(() => {
-          addBotMessage(`Super, tu utilises ${brand}. À quelle heure la prends-tu ? (ex : 8h ou 20h)`);
+          addBotMessage(`Super, tu utilises ${brand}. À quelle heure la prends-tu ? (ex : 8h ou 20h) ⏰`);
           setIsBotTyping(false);
-        }, 400);
+        }, 300);
         return;
       }
 
@@ -351,21 +368,17 @@ export default function PillMatchChat() {
       if (!brand && timeText) {
         setIntakeTime(timeText);
         setTimeout(() => {
-          addBotMessage(
-            'Merci ! Et peux-tu me préciser la marque ou le type de ta contraception ? (ex : Leeloo, Optilova, implant, etc.)'
-          );
+          addBotMessage('Merci ! Et peux-tu me préciser la marque ou le type de ta contraception ? (ex : Leeloo, Optilova, implant…)');
           setIsBotTyping(false);
-        }, 400);
+        }, 300);
         return;
       }
 
       // 6) Fallback
       setTimeout(() => {
-        addBotMessage(
-          'Tu peux me dire la marque/type de ta contraception ET l’heure de prise ? Par ex. : Leeloo à 8h, Optilova à 20h, ou implant (diffusion continue).'
-        );
+        addBotMessage('Tu peux me dire la marque/type de ta contraception ET l’heure de prise ? Par ex. : Leeloo à 8h, Optilova à 20h, ou implant (diffusion continue).');
         setIsBotTyping(false);
-      }, 400);
+      }, 300);
       return;
     }
 
@@ -374,12 +387,12 @@ export default function PillMatchChat() {
       setIsBotTyping(true);
       await handleCheckInteraction(currentUserInput);
       setIsBotTyping(false);
-      setConversationStage('AWAITING_PRODUCT'); // prêt pour la suite
+      setConversationStage('AWAITING_PRODUCT');
       return;
     }
   };
 
-  // -------- Helpers parsing JSON Gemini --------
+  // -------- Helpers parsing/cleanup --------
   function stripCodeFences(s: string) {
     const fenceRegex = /^```(?:json)?\s*([\s\S]*?)\s*```$/i;
     const m = s.match(fenceRegex);
@@ -390,7 +403,7 @@ export default function PillMatchChat() {
     try {
       return JSON.parse(txt);
     } catch {
-      const fixed = txt.replace(/,\s*([}\]])/g, '$1'); // trailing commas
+      const fixed = txt.replace(/,\s*([}\]])/g, '$1');
       try {
         return JSON.parse(fixed);
       } catch {
@@ -399,10 +412,48 @@ export default function PillMatchChat() {
     }
   }
 
+  function sanitizeSources(sources: { name: string; url: string }[] | undefined) {
+    if (!Array.isArray(sources)) return [];
+    return sources.filter((s) => typeof s?.url === 'string' && /^https?:\/\//i.test(s.url));
+  }
+
+  // Post-traitement : adapter le conseil selon diffusion continue / niveau
+  function adaptAnalysisToContext(result: InteractionResult): InteractionResult {
+    const isContinuous =
+      (intakeTime || '').toLowerCase().includes('diffusion') ||
+      /implant|anneau|patch|stérilet|sterilet/i.test(contraceptive || '');
+
+    const out: InteractionResult = {
+      ...result,
+      sources: sanitizeSources(result.sources),
+      recommendation: { ...result.recommendation },
+    };
+
+    // Règles génériques d’espacement si pas explicitement donné
+    if (!out.recommendation.timing || !out.recommendation.timing.trim()) {
+      if (result.interactionLevel === 'faible') {
+        out.recommendation.timing = 'Aucun espacement nécessaire.';
+      } else if (result.interactionLevel === 'moyen') {
+        out.recommendation.timing = 'Sépare d’au moins 3–4 heures avec ta contraception.';
+      } else if (result.interactionLevel === 'grave') {
+        out.recommendation.timing = 'Évite l’association. Utilise une méthode barrière et demande conseil à un pro de santé.';
+      } else {
+        out.recommendation.timing = 'Données limitées : demande l’avis de ton pharmacien/médecin.';
+      }
+    }
+
+    // Ajustement pour diffusion continue : rappeler le risque global
+    if (isContinuous && result.interactionLevel !== 'faible') {
+      out.explanation = `${out.explanation} Dans ton cas (diffusion continue), le risque d’interaction concerne toute la durée d’action du dispositif.`;
+    }
+
+    return out;
+  }
+
   // ---------- Appel IA + KB ----------
   const handleCheckInteraction = async (product: string) => {
     if (!product?.trim()) {
-      addBotMessage('Peux-tu me donner le nom du médicament ou complément à vérifier ?');
+      addBotMessage('Peux-tu me donner le nom du médicament ou complément à vérifier ? 😊');
       return;
     }
 
@@ -411,7 +462,7 @@ export default function PillMatchChat() {
     const canonical = norm.canonical;
     const kbHit = LOCAL_KB[canonical];
     if (kbHit) {
-      addBotMessage("Merci d'avoir patienté. Voici l'analyse :", kbHit);
+      addBotMessage("Merci d'avoir patienté. Voici l'analyse :", adaptAnalysisToContext(kbHit));
       return;
     }
 
@@ -423,35 +474,31 @@ export default function PillMatchChat() {
       return;
     }
 
-    // Prompt orienté pédagogie (verdict clair + conseil)
+    // Prompt orienté pédagogie + spacing + alternatives
     const prompt = `
 Tu es "Lou", une coach santé claire et rassurante. Tu analyses l'interaction entre une contraception hormonale et un produit.
 Réponds en UN SEUL objet JSON strict (pas de Markdown), en français, avec ce schéma :
 {
   "interactionLevel": "faible" | "moyen" | "grave" | "inconnu",
   "title": "verdict court et clair",
-  "explanation": "vulgarisation simple : 2-3 phrases max",
+  "explanation": "vulgarisation simple : 2-3 phrases max (tutoie)",
   "scientificBasis": "phrase sur les sources utilisées",
   "sources": [ { "name": "nom source", "url": "https://..." } ],
   "contraceptionImpact": "impact concret sur la pilule (absorption, enzymes, etc.)",
   "recommendation": {
-    "timing": "conseil pratique (ex : 'Aucun espacement nécessaire' / 'Espace de 3-4h')",
+    "timing": "conseil pratique (ex : 'Aucun espacement nécessaire' / 'Espace de 3–4 h' / 'Évite l’association, préservatif X jours/semaines')",
     "alternative": "si risque moyen/élevé : produit(s) plus sûrs en France ; sinon chaîne vide"
   }
 }
+Rappelle-toi : si les bases fiables ne signalent pas d’interaction cliniquement significative → 'faible' plutôt que 'inconnu' et explique pourquoi.
 
 Contexte:
 - Contraception: "${contraceptive || 'non précisé'}"
 - Heure/méthode: "${intakeTime || 'non précisé'}"
 - Produit: "${canonical}"
 
-Règles de décision rapides:
-- Inducteurs (millepertuis, rifampicine) → souvent "grave", expliquer simplement.
-- Adsorbants (charbon activé) → "moyen" si prises concomitantes (séparer les prises).
-- Minéraux (fer) → "faible" sauf cas particuliers.
-- Si pas de signal d'interaction dans bases fiables → "faible" plutôt que "inconnu" (et explique pourquoi).
-- Toujours proposer un conseil d'usage concret dans "recommendation.timing".
-    `.trim();
+Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Les URLs doivent être valides (https).
+`.trim();
 
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
@@ -466,9 +513,7 @@ Règles de décision rapides:
         '';
 
       if (!rawText) {
-        addBotMessage(
-          'Je n’ai pas réussi à obtenir une réponse. Réessaie avec le nom exact du produit.'
-        );
+        addBotMessage('Je n’ai pas réussi à obtenir une réponse. Réessaie avec le nom exact du produit 🙏');
         return;
       }
 
@@ -476,35 +521,20 @@ Règles de décision rapides:
       let parsed: InteractionResult | null = tryParseJsonLoose(body);
 
       if (!parsed?.interactionLevel) {
-        addBotMessage(
-          "Réponse incomplète. Peux-tu préciser la forme/marque exacte du produit ?"
-        );
+        addBotMessage("Réponse incomplète. Peux-tu préciser la forme/marque exacte du produit ?");
         return;
       }
 
-      addBotMessage("Merci d'avoir patienté. Voici l'analyse :", parsed);
+      const adapted = adaptAnalysisToContext(parsed);
+      addBotMessage("Merci d'avoir patienté. Voici l'analyse :", adapted);
     } catch (err: any) {
       const message = err?.message || 'Erreur inconnue';
-      addBotMessage(
-        `Désolée, une erreur est survenue lors de l'analyse (${message}). Réessaie dans un instant.`
-      );
+      addBotMessage(`Désolée, une erreur est survenue lors de l'analyse (${message}). Réessaie dans un instant 🙏`);
     }
   };
 
   // ---------- UI helpers ----------
-  const getStatusIcon = (level: InteractionResult['interactionLevel']) => {
-    switch (level) {
-      case 'faible':
-        return { icon: 'check_circle', label: 'Faible' };
-      case 'moyen':
-        return { icon: 'warning', label: 'Moyen' };
-      case 'grave':
-        return { icon: 'error', label: 'Élevé' };
-      case 'inconnu':
-      default:
-        return { icon: 'help', label: 'Inconnu' };
-    }
-  };
+  const getStatusIcon = (level: InteractionLevel) => badgeMeta(level).icon;
 
   // -------------- Render --------------
   return (
@@ -517,8 +547,7 @@ Règles de décision rapides:
 
       {!ai && (
         <div className="error-banner">
-          Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY). L'application ne
-          peut pas fonctionner.
+          Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY). L'application ne peut pas fonctionner.
         </div>
       )}
 
@@ -532,49 +561,67 @@ Règles de décision rapides:
             {msg.analysis && (
               <div className={`analysis-card level-${msg.analysis.interactionLevel}`}>
                 <div className="analysis-header">
-                  <span className={`icon level-icon`}>
-                    {getStatusIcon(msg.analysis.interactionLevel).icon}
+                  <span className="level-emoji" aria-hidden>
+                    {badgeMeta(msg.analysis.interactionLevel).emoji}
                   </span>
+                  <span className={`icon level-icon`}>{getStatusIcon(msg.analysis.interactionLevel)}</span>
                   <div className="header-text">
                     <h4>
-                      Niveau d'interaction : {getStatusIcon(msg.analysis.interactionLevel).label}
+                      Niveau d'interaction : {badgeMeta(msg.analysis.interactionLevel).label}
                     </h4>
                     <h5>{msg.analysis.title}</h5>
                   </div>
                 </div>
+
+                {/* Contraception context note */}
+                {(intakeTime?.toLowerCase().includes('diffusion') ||
+                  /implant|anneau|patch|stérilet|sterilet/i.test(contraceptive || '')) && (
+                  <div className="analysis-section hint">
+                    <strong>Contexte :</strong>{' '}
+                    <span>
+                      Ta contraception est à diffusion continue. Les recommandations tiennent compte de ce mode d’action. ✨
+                    </span>
+                  </div>
+                )}
+
                 <div className="analysis-section">
                   <strong>Pourquoi ?</strong>
                   <p>{msg.analysis.explanation}</p>
                 </div>
+
                 <div className="analysis-section">
                   <strong>Impact sur ta contraception</strong>
                   <p>{msg.analysis.contraceptionImpact}</p>
                 </div>
+
                 <div className="analysis-section recommendation">
                   <strong>
                     <span className="icon">recommend</span> Recommandation
                   </strong>
                   <p>{msg.analysis.recommendation.timing}</p>
-                  {msg.analysis.recommendation.alternative && (
+                  {msg.analysis.recommendation.alternative && msg.analysis.recommendation.alternative.trim() && (
                     <p>
                       <strong>Alternative : </strong>
                       {msg.analysis.recommendation.alternative}
                     </p>
                   )}
                 </div>
+
                 <div className="analysis-section sources">
                   <p>
                     <strong>Sources : </strong>
                     {msg.analysis.scientificBasis}
                   </p>
                   <ul>
-                    {msg.analysis.sources.map((source) => (
-                      <li key={source.name}>
-                        <a href={source.url} target="_blank" rel="noopener noreferrer">
-                          {source.name}
-                        </a>
-                      </li>
-                    ))}
+                    {msg.analysis.sources
+                      .filter((s) => typeof s?.url === 'string' && /^https?:\/\//i.test(s.url))
+                      .map((source) => (
+                        <li key={`${source.name}-${source.url}`}>
+                          <a href={source.url} target="_blank" rel="noopener noreferrer">
+                            {source.name}
+                          </a>
+                        </li>
+                      ))}
                   </ul>
                 </div>
               </div>
