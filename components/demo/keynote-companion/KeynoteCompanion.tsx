@@ -44,6 +44,125 @@ type InteractionResult = {
   };
 };
 
+// ---------- Normalisation produit + KB locale ----------
+function normalizeProduct(raw: string): { canonical: string; synonyms: string[] } {
+  const s = raw.toLowerCase().trim();
+
+  const table = [
+    { canonical: 'fer (sels ferreux: sulfate, gluconate)', synonyms: ['fer', 'cure de fer', 'complément fer', 'fer bisglycinate', 'sulfate de fer', 'gluconate de fer'] },
+    { canonical: 'paracétamol', synonyms: ['doliprane', 'efferalgan', 'dafalgan', 'paracetamol', 'paracétamol'] },
+    { canonical: 'ibuprofène', synonyms: ['ibuprofene', 'ibuprofen', 'nurofen', 'advil'] },
+    { canonical: 'millepertuis (Hypericum perforatum)', synonyms: ['millepertuis', 'hypericum', 'hypericum perforatum', 'st john', 'st. john'] },
+    { canonical: 'rifampicine', synonyms: ['rifampicine', 'rifampin'] },
+    { canonical: 'charbon activé', synonyms: ['charbon', 'charbon active', 'charcoal', 'activated charcoal'] },
+    { canonical: 'lévothyroxine', synonyms: ['levothyrox', 'lévothyrox', 'levothyroxine', 'levothyrox®'] },
+    { canonical: 'amoxicilline', synonyms: ['amoxicilline', 'amoxicillin'] },
+  ];
+
+  for (const row of table) {
+    if (row.synonyms.some((k) => s.includes(k))) return row;
+  }
+  return { canonical: raw.trim(), synonyms: [] };
+}
+
+type KBItem = InteractionResult;
+
+const LOCAL_KB: Record<string, KBItem> = {
+  'fer (sels ferreux: sulfate, gluconate)': {
+    interactionLevel: 'faible',
+    title: "Fer et contraception hormonale : pas d'interaction cliniquement significative",
+    explanation:
+      "Le fer est un minéral absorbé au niveau intestinal et n’induit pas les enzymes hépatiques impliquées dans le métabolisme des estroprogestatifs. Il n’altère donc pas l’efficacité contraceptive.",
+    scientificBasis:
+      "Basé sur la littérature pharmacologique et l’absence de signal d’interaction dans les bases majeures (ANSM, Vidal, DrugBank).",
+    sources: [
+      { name: 'ANSM – Monographies', url: 'https://ansm.sante.fr' },
+      { name: 'Vidal – Interactions', url: 'https://www.vidal.fr' },
+      { name: 'DrugBank – Ferrous sulfate', url: 'https://go.drugbank.com' },
+    ],
+    contraceptionImpact:
+      "Aucun effet attendu sur les voies CYP métabolisant les hormones de la pilule.",
+    recommendation: {
+      timing:
+        "Aucun espacement nécessaire pour la contraception. Tu peux espacer pour optimiser l’absorption du fer ou le confort digestif.",
+      alternative: '',
+    },
+  },
+
+  'millepertuis (Hypericum perforatum)': {
+    interactionLevel: 'grave',
+    title: "Millepertuis et contraception : interaction majeure (induction CYP3A4)",
+    explanation:
+      "Le millepertuis induit CYP3A4 et la P-gp, ce qui accélère la dégradation des estroprogestatifs et peut réduire l’efficacité contraceptive.",
+    scientificBasis: 'Interaction bien documentée par les agences et la littérature.',
+    sources: [
+      { name: 'ANSM – Avertissements Millepertuis', url: 'https://ansm.sante.fr' },
+      { name: 'EMA – Herbal monograph: St John’s wort', url: 'https://www.ema.europa.eu' },
+    ],
+    contraceptionImpact:
+      "Diminution des taux plasmatiques hormonaux → risque de grossesse.",
+    recommendation: {
+      timing:
+        "Évite l’association. Si déjà pris, méthode barrière pendant l’utilisation et 2 semaines après l’arrêt.",
+      alternative:
+        "Privilégie des options non inductrices pour l’humeur/sommeil (ex. mélatonine courte durée, magnésium), à valider avec un pro de santé.",
+    },
+  },
+
+  rifampicine: {
+    interactionLevel: 'grave',
+    title: 'Rifampicine et contraception : interaction majeure (inducteur CYP3A4)',
+    explanation:
+      "La rifampicine est un puissant inducteur enzymatique, diminuant fortement les concentrations d’ethinylestradiol/progestatifs.",
+    scientificBasis: 'Interaction classique bien connue.',
+    sources: [
+      { name: 'ANSM – Rifampicine', url: 'https://ansm.sante.fr' },
+      { name: 'Vidal – Interactions rifampicine', url: 'https://www.vidal.fr' },
+    ],
+    contraceptionImpact: 'Risque élevé d’échec contraceptif.',
+    recommendation: {
+      timing:
+        "Éviter avec pilules classiques. Utiliser une méthode alternative (DIU, injectable) ou double protection pendant et 4 semaines après.",
+      alternative:
+        "Méthodes moins dépendantes du CYP (DIU cuivre/hormonal). À discuter avec un pro.",
+    },
+  },
+
+  'paracétamol': {
+    interactionLevel: 'faible',
+    title: "Paracétamol et contraception : pas d'interaction significative",
+    explanation:
+      "Aux doses usuelles, le paracétamol n’induit ni n’inhibe significativement les voies métaboliques des estroprogestatifs.",
+    scientificBasis: 'Consensus monographies et bases d’interactions.',
+    sources: [
+      { name: 'ANSM – Paracétamol', url: 'https://ansm.sante.fr' },
+      { name: 'Vidal – Paracétamol', url: 'https://www.vidal.fr' },
+    ],
+    contraceptionImpact: "Aucun impact attendu sur l’efficacité.",
+    recommendation: {
+      timing: 'Aucun espacement nécessaire.',
+      alternative: '',
+    },
+  },
+
+  'charbon activé': {
+    interactionLevel: 'moyen',
+    title: 'Charbon activé et contraception : possible réduction de l’absorption',
+    explanation:
+      "Le charbon peut adsorber des substances dans l’intestin et diminuer l’absorption s’il est pris très proche de la pilule.",
+    scientificBasis: 'Principe d’adsorption intestinal documenté.',
+    sources: [{ name: 'ANSM – Charbon activé', url: 'https://ansm.sante.fr' }],
+    contraceptionImpact: 'Risque de moindre absorption si prise concomitante.',
+    recommendation: {
+      timing:
+        'Espace d’au moins 3 à 4 heures avec la pilule. Si prise rapprochée, méthode barrière 7 jours.',
+      alternative: '',
+    },
+  },
+};
+
+// ------------------------------------------------------
+
 export default function PillMatchChat() {
   const { contraceptive, intakeTime, setContraceptive, setIntakeTime } = useUser();
   const { isBotTyping, setIsBotTyping } = useUI();
@@ -104,7 +223,7 @@ export default function PillMatchChat() {
     if (conversationStage === 'AWAITING_CONTRACEPTION') {
       setIsBotTyping(true);
 
-      // Détection diffusion continue (implant/DIU hormoné/patch/anneau…)
+      // Diffusion continue (implant/DIU hormoné/patch/anneau…)
       const isContinuous =
         /diffusion continue|implant|stérilet|sterilet|patch|anneau/i.test(currentUserInput);
 
@@ -122,7 +241,7 @@ export default function PillMatchChat() {
         .replace(/\s+/g, ' ')
         .trim();
 
-      // Normalisation simple (complète au besoin)
+      // Normalisation simple
       const normalizeMap: Record<string, string> = {
         'ludeal g': 'Ludéal Gé',
         'ludeal ge': 'Ludéal Gé',
@@ -138,7 +257,7 @@ export default function PillMatchChat() {
       const key = brandRaw.toLowerCase();
       const brand = normalizeMap[key] || brandRaw;
 
-      // 1) Cas diffusion continue
+      // 1) Diffusion continue
       if (isContinuous) {
         setContraceptive(brand || 'Contraception à diffusion continue');
         setIntakeTime('Diffusion continue');
@@ -153,7 +272,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 2) Si on a déjà une moitié en mémoire, complète
+      // 2) Complétions si moitié déjà fournie
       if (!brand && timeText && contraceptive && !intakeTime) {
         setIntakeTime(timeText);
         setTimeout(() => {
@@ -179,7 +298,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 3) Cas "marque + heure" dans le même message
+      // 3) Marque + heure
       if (brand && timeText) {
         setContraceptive(brand);
         setIntakeTime(timeText);
@@ -194,7 +313,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 4) Cas "marque seule" -> on mémorise la marque et on demande l’heure
+      // 4) Marque seule
       if (brand && !timeText) {
         setContraceptive(brand);
         setTimeout(() => {
@@ -204,7 +323,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 5) Cas "heure seule" -> on mémorise l’heure et on demande la marque
+      // 5) Heure seule
       if (!brand && timeText) {
         setIntakeTime(timeText);
         setTimeout(() => {
@@ -247,7 +366,6 @@ export default function PillMatchChat() {
     try {
       return JSON.parse(txt);
     } catch {
-      // petites réparations triviales
       const fixed = txt.replace(/,\s*([}\]])/g, '$1');
       try {
         return JSON.parse(fixed);
@@ -258,6 +376,20 @@ export default function PillMatchChat() {
   }
 
   const handleCheckInteraction = async (product: string) => {
+    if (!product?.trim()) {
+      addBotMessage('Peux-tu me donner le nom du médicament/complément à vérifier ?');
+      return;
+    }
+
+    // Normalisation + KB locale
+    const norm = normalizeProduct(product);
+    const canonical = norm.canonical;
+    const kbHit = LOCAL_KB[canonical];
+    if (kbHit) {
+      addBotMessage("Merci d'avoir patienté. Voici l'analyse :", kbHit);
+      return;
+    }
+
     if (!ai) {
       addBotMessage(
         'Désolée, je ne peux pas effectuer de vérification pour le moment. Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY).'
@@ -266,70 +398,62 @@ export default function PillMatchChat() {
     }
 
     const prompt = `
-You are "Lou", a warm and reassuring chatbot assistant. Your goal is to guide the user in understanding interactions between their hormonal contraception and other products.
-The user's data is:
-- Contraception: "${contraceptive}"
-- Intake Time/Method: "${intakeTime}"
-- Product to check: "${product}"
+Tu es "Lou", assistante santé. Analyse l'interaction entre une contraception hormonale et un produit.
 
-Your task is to provide a detailed, scientifically-backed analysis. Your response MUST be a single, valid JSON object, with no markdown formatting.
-
-The JSON object structure is:
+CONTRAINTE: Réponds en UN SEUL objet JSON, sans Markdown, en français, en tutoyant, avec ce schéma:
 {
   "interactionLevel": "faible" | "moyen" | "grave" | "inconnu",
-  "title": "A short summary of the interaction level with the product name.",
-  "explanation": "A simple, easy-to-understand explanation of why there is or isn't an interaction. Use scientific popularization. Write in French and use 'tu'.",
-  "scientificBasis": "A sentence stating the source of your information, like 'This analysis is based on data from the French National Agency for the Safety of Medicines (ANSM) and the DrugBank database.'",
-  "sources": [
-    { "name": "Name of the source (e.g., ANSM, Vidal, DrugBank)", "url": "A direct URL to the relevant information if possible, otherwise to the main site. Must be a real, verifiable URL." }
-  ],
-  "contraceptionImpact": "Specifically explain how this product can affect the user's contraception (enzymes CYP, absorption, etc.).",
-  "recommendation": {
-    "timing": "Provide clear advice on timing in French, or say 'Aucun espacement nécessaire'.",
-    "alternative": "If risk is medium or high, suggest a safer alternative commonly used in France."
-  }
+  "title": "...",
+  "explanation": "...",
+  "scientificBasis": "...",
+  "sources": [ { "name": "...", "url": "https://..." } ],
+  "contraceptionImpact": "...",
+  "recommendation": { "timing": "...", "alternative": "..." }
 }
 
-RULES:
-1) Base your analysis on verified, open-access scientific data (ANSM, EMA, Vidal, DrugBank, PubMed).
-2) You MUST provide real sources in the 'sources' array.
-3) Be reassuring and clear in French. Use 'tu'.
-4) If no information is found, set 'interactionLevel' to "inconnu" and explain.
+Contexte utilisateur:
+- Contraception: "${contraceptive}"
+- Heure/méthode: "${intakeTime}"
+- Produit: "${canonical}"
+
+RÈGLES:
+- Inducteurs enzymatiques (ex: millepertuis, rifampicine) -> souvent "grave".
+- Adsorbants (charbon activé) -> "moyen" si prises concomitantes (séparer les prises).
+- Compléments minéraux comme le fer n’induisent/ n’inhibent pas le CYP3A4 -> généralement "faible".
+- Si la littérature ne signale pas d’interaction cliniquement significative, préfère "faible" à "inconnu" et explique pourquoi.
 `.trim();
 
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-1.5-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json' },
+        config: { responseMimeType: 'application/json', temperature: 0.3 },
       });
 
-      // Compat différentes versions de SDK
       const rawText =
         (response as any)?.text?.trim?.() ||
         (response as any)?.response?.text?.()?.trim?.() ||
         '';
 
       if (!rawText) {
-        console.error('Réponse vide/inattendue:', response);
-        addBotMessage("Désolée, je n’ai pas réussi à traiter la réponse. Réessaie dans un instant.");
+        addBotMessage(
+          'Je n’ai pas réussi à obtenir une réponse. Réessaie avec le nom exact du produit.'
+        );
         return;
       }
 
-      let jsonStr = stripCodeFences(rawText);
-      let parsed = tryParseJsonLoose(jsonStr) as InteractionResult | null;
+      const body = stripCodeFences(rawText);
+      let parsed: InteractionResult | null = tryParseJsonLoose(body);
 
-      if (!parsed || !parsed.interactionLevel || !parsed.recommendation) {
-        console.warn('JSON incomplet ou non parsable:', jsonStr);
+      if (!parsed?.interactionLevel) {
         addBotMessage(
-          "J’ai reçu une réponse incomplète. Réessaie en précisant le produit exact (ex : 'millepertuis Arkopharma')."
+          "Réponse incomplète. Peux-tu préciser la forme/marque exacte du produit ?"
         );
         return;
       }
 
       addBotMessage("Merci d'avoir patienté. Voici l'analyse :", parsed);
     } catch (err: any) {
-      console.error('Erreur API Gemini:', err);
       const message = err?.message || 'Erreur inconnue';
       addBotMessage(
         `Désolée, une erreur est survenue lors de l'analyse (${message}). Réessaie dans un instant.`
