@@ -63,27 +63,89 @@ function badgeMeta(level: InteractionLevel) {
   }
 }
 
+// -------------- Fuzzy utils --------------
+function deburr(str: string) {
+  return str.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
+// Damerau-Levenshtein (light)
+function editDistance(a: string, b: string) {
+  const A = deburr(a), B = deburr(b);
+  const al = A.length, bl = B.length;
+  const dp = Array.from({ length: al + 1 }, () => Array(bl + 1).fill(0));
+  for (let i = 0; i <= al; i++) dp[i][0] = i;
+  for (let j = 0; j <= bl; j++) dp[0][j] = j;
+  for (let i = 1; i <= al; i++) {
+    for (let j = 1; j <= bl; j++) {
+      const cost = A[i - 1] === B[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost
+      );
+      if (
+        i > 1 &&
+        j > 1 &&
+        A[i - 1] === B[j - 2] &&
+        A[i - 2] === B[j - 1]
+      ) {
+        dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1);
+      }
+    }
+  }
+  return dp[al][bl];
+}
+
+function similar(a: string, b: string, maxEdits = 2) {
+  return editDistance(a, b) <= maxEdits;
+}
+
 // -------------- Normalisation produit + KB locale --------------
 function normalizeProduct(raw: string): { canonical: string; synonyms: string[] } {
-  const s = raw.toLowerCase().trim();
+  const s0 = raw.trim();
+  const s = deburr(
+    s0
+      // enlève marques/mots parasites courants
+      .replace(/\b(lea nature|arkopharma|nutrivita|solgar|pileje|biocyte|phyto|bio|capsules?|gelules?|gélules?|complement|complément|cure|mois|pack|programme)\b/gi, ' ')
+      .replace(/[^\p{Letter}\p{Number}\s]/gu, ' ')
+      .replace(/\s+/g, ' ')
+  );
 
-  const table = [
-    { canonical: 'fer (sels ferreux: sulfate, gluconate)', synonyms: ['fer', 'cure de fer', 'complément fer', 'fer bisglycinate', 'sulfate de fer', 'gluconate de fer'] },
-    { canonical: 'paracétamol', synonyms: ['doliprane', 'efferalgan', 'dafalgan', 'paracetamol', 'paracétamol'] },
-    { canonical: 'ibuprofène', synonyms: ['ibuprofene', 'ibuprofen', 'nurofen', 'advil'] },
-    { canonical: 'millepertuis (Hypericum perforatum)', synonyms: ['millepertuis', 'hypericum', 'hypericum perforatum', 'st john', 'st. john'] },
-    { canonical: 'rifampicine', synonyms: ['rifampicine', 'rifampin'] },
-    { canonical: 'charbon activé', synonyms: ['charbon', 'charbon active', 'charcoal', 'activated charcoal'] },
-    { canonical: 'lévothyroxine', synonyms: ['levothyrox', 'lévothyrox', 'levothyroxine', 'levothyrox®'] },
-    { canonical: 'amoxicilline', synonyms: ['amoxicilline', 'amoxicillin'] },
-    { canonical: 'vitamine c (acide ascorbique)', synonyms: ['vitamine c', 'acide ascorbique', 'vit c'] },
-    { canonical: 'collagène', synonyms: ['collagene', 'cure collagène', 'luxéol 3 mois', 'luxeol', 'luxéol'] },
+  const rows = [
+    {
+      canonical: 'millepertuis (Hypericum perforatum)',
+      synonyms: [
+        'millepertuis','hypericum','hypericum perforatum',
+        'st john','st. john',
+        // fautes fréquentes
+        'millerptuis','milepertuis','milleperuis','millepertui','milleperthuis'
+      ]
+    },
+    { canonical: 'fer (sels ferreux: sulfate, gluconate)', synonyms: [
+      'fer','cure de fer','complement fer','complément fer',
+      'fer bisglycinate','sulfate de fer','gluconate de fer'
+    ]},
+    { canonical: 'paracétamol', synonyms: ['paracetamol','paracétamol','doliprane','efferalgan','dafalgan']},
+    { canonical: 'ibuprofène', synonyms: ['ibuprofene','ibuprofen','nurofen','advil']},
+    { canonical: 'rifampicine', synonyms: ['rifampicine','rifampin']},
+    { canonical: 'charbon activé', synonyms: ['charbon','charbon active','charcoal','activated charcoal']},
+    { canonical: 'lévothyroxine', synonyms: ['levothyrox','levothyroxine','levothyrox']},
+    { canonical: 'amoxicilline', synonyms: ['amoxicilline','amoxicillin']},
+    { canonical: 'vitamine c (acide ascorbique)', synonyms: ['vitamine c','acide ascorbique','vit c']},
+    { canonical: 'collagène', synonyms: ['collagene','cure collagene','luxeol','luxeol 3 mois','luxéol','collagène']},
   ];
 
-  for (const row of table) {
-    if (row.synonyms.some((k) => s.includes(k))) return row;
+  for (const row of rows) {
+    // match substring propre
+    if (row.synonyms.some(k => s.includes(deburr(k)))) return row;
+    // match fuzzy global
+    if (row.synonyms.some(k => similar(s, k))) return row;
+    // token-level fuzzy
+    const tokens = s.split(/\s+/);
+    if (row.synonyms.some(k => tokens.some(t => similar(t, k)))) return row;
   }
-  return { canonical: raw.trim(), synonyms: [] };
+
+  return { canonical: s0.trim(), synonyms: [] };
 }
 
 type KBItem = InteractionResult;
@@ -117,13 +179,10 @@ const LOCAL_KB: Record<string, KBItem> = {
       { name: 'ANSM – Avertissements Millepertuis', url: 'https://ansm.sante.fr' },
       { name: 'EMA – Monograph: St John’s wort', url: 'https://www.ema.europa.eu' },
     ],
-    contraceptionImpact:
-      "Baisse des taux hormonaux → risque de grossesse.",
+    contraceptionImpact: "Baisse des taux hormonaux → risque de grossesse.",
     recommendation: {
-      timing:
-        "Évite l’association. Si déjà pris : préservatif pendant toute la prise + 2 semaines après l’arrêt.",
-      alternative:
-        "Options non inductrices pour l’humeur/sommeil (ex. magnésium, mélatonine courte durée) — à valider avec un pro de santé.",
+      timing: "Évite l’association. Si déjà pris : préservatif pendant toute la prise + 2 semaines après l’arrêt.",
+      alternative: "Options non inductrices pour l’humeur/sommeil (ex. magnésium, mélatonine courte durée) — à valider avec un pro de santé.",
     },
   },
   rifampicine: {
@@ -138,10 +197,8 @@ const LOCAL_KB: Record<string, KBItem> = {
     ],
     contraceptionImpact: 'Risque élevé d’échec contraceptif.',
     recommendation: {
-      timing:
-        "Éviter avec les pilules classiques. Utiliser double protection durant la cure + 4 semaines après.",
-      alternative:
-        "Méthodes moins dépendantes du CYP (DIU cuivre/hormonal) — à discuter avec un pro.",
+      timing: "Éviter avec les pilules classiques. Utiliser double protection durant la cure + 4 semaines après.",
+      alternative: "Méthodes moins dépendantes du CYP (DIU cuivre/hormonal) — à discuter avec un pro.",
     },
   },
   'paracétamol': {
@@ -155,10 +212,7 @@ const LOCAL_KB: Record<string, KBItem> = {
       { name: 'Vidal – Paracétamol', url: 'https://www.vidal.fr' },
     ],
     contraceptionImpact: "Aucun impact attendu sur l’efficacité.",
-    recommendation: {
-      timing: 'Aucun espacement nécessaire.',
-      alternative: '',
-    },
+    recommendation: { timing: 'Aucun espacement nécessaire.', alternative: '' },
   },
   'charbon activé': {
     interactionLevel: 'moyen',
@@ -169,8 +223,7 @@ const LOCAL_KB: Record<string, KBItem> = {
     sources: [{ name: 'ANSM – Charbon activé', url: 'https://ansm.sante.fr' }],
     contraceptionImpact: 'Risque de moindre absorption si prises concomitantes.',
     recommendation: {
-      timing:
-        'Sépare d’au moins 3–4 heures avec la pilule. Si prises trop proches : préservatif 7 jours.',
+      timing: 'Sépare d’au moins 3–4 heures avec la pilule. Si prises trop proches : préservatif 7 jours.',
       alternative: '',
     },
   },
@@ -268,13 +321,13 @@ export default function PillMatchChat() {
       const isContinuous =
         /diffusion continue|implant|stérilet|sterilet|patch|anneau/i.test(currentUserInput);
 
-      // Heure : "à 8h", "8 h", "07h30", "vers 20h", etc.
+      // Heure
       const timeMatch = currentUserInput.match(
         /(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/i
       );
       const timeText = timeMatch ? `${timeMatch[1]}h${timeMatch[2] ? timeMatch[2] : ''}` : '';
 
-      // Marque/type = texte - heure - mots parasites
+      // Marque/type
       let brandRaw = currentUserInput
         .replace(/(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/gi, '')
         .replace(/\bet\b/gi, ' ')
@@ -282,7 +335,6 @@ export default function PillMatchChat() {
         .replace(/\s+/g, ' ')
         .trim();
 
-      // Normalisation simple
       const normalizeMap: Record<string, string> = {
         'ludeal g': 'Ludéal Gé',
         'ludeal ge': 'Ludéal Gé',
@@ -298,7 +350,6 @@ export default function PillMatchChat() {
       const key = brandRaw.toLowerCase();
       const brand = normalizeMap[key] || brandRaw;
 
-      // 1) Diffusion continue
       if (isContinuous) {
         setContraceptive(brand || 'Contraception à diffusion continue');
         setIntakeTime('Diffusion continue');
@@ -313,7 +364,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 2) Complétions si moitié déjà fournie
+      // Complétions si moitié déjà fournie
       if (!brand && timeText && contraceptive && !intakeTime) {
         setIntakeTime(timeText);
         setTimeout(() => {
@@ -339,7 +390,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 3) Marque + heure
+      // Marque + heure
       if (brand && timeText) {
         setContraceptive(brand);
         setIntakeTime(timeText);
@@ -354,7 +405,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 4) Marque seule
+      // Marque seule
       if (brand && !timeText) {
         setContraceptive(brand);
         setTimeout(() => {
@@ -364,7 +415,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 5) Heure seule
+      // Heure seule
       if (!brand && timeText) {
         setIntakeTime(timeText);
         setTimeout(() => {
@@ -374,7 +425,7 @@ export default function PillMatchChat() {
         return;
       }
 
-      // 6) Fallback
+      // Fallback
       setTimeout(() => {
         addBotMessage('Tu peux me dire la marque/type de ta contraception ET l’heure de prise ? Par ex. : Leeloo à 8h, Optilova à 20h, ou implant (diffusion continue).');
         setIsBotTyping(false);
@@ -429,7 +480,6 @@ export default function PillMatchChat() {
       recommendation: { ...result.recommendation },
     };
 
-    // Règles génériques d’espacement si pas explicitement donné
     if (!out.recommendation.timing || !out.recommendation.timing.trim()) {
       if (result.interactionLevel === 'faible') {
         out.recommendation.timing = 'Aucun espacement nécessaire.';
@@ -442,9 +492,8 @@ export default function PillMatchChat() {
       }
     }
 
-    // Ajustement pour diffusion continue : rappeler le risque global
     if (isContinuous && result.interactionLevel !== 'faible') {
-      out.explanation = `${out.explanation} Dans ton cas (diffusion continue), le risque d’interaction concerne toute la durée d’action du dispositif.`;
+      out.explanation = `${out.explanation} Dans ton cas (diffusion continue), le risque peut concerner toute la durée d’action du dispositif.`;
     }
 
     return out;
@@ -474,7 +523,6 @@ export default function PillMatchChat() {
       return;
     }
 
-    // Prompt orienté pédagogie + spacing + alternatives
     const prompt = `
 Tu es "Lou", une coach santé claire et rassurante. Tu analyses l'interaction entre une contraception hormonale et un produit.
 Réponds en UN SEUL objet JSON strict (pas de Markdown), en français, avec ce schéma :
@@ -490,7 +538,8 @@ Réponds en UN SEUL objet JSON strict (pas de Markdown), en français, avec ce s
     "alternative": "si risque moyen/élevé : produit(s) plus sûrs en France ; sinon chaîne vide"
   }
 }
-Rappelle-toi : si les bases fiables ne signalent pas d’interaction cliniquement significative → 'faible' plutôt que 'inconnu' et explique pourquoi.
+Rappelle-toi : si les bases fiables ne signalent pas d’interaction cliniquement significative → "faible" plutôt que "inconnu" et explique pourquoi.
+Si le produit correspond à une marque contenant un actif connu (ex. millepertuis), **classe selon l’actif**.
 
 Contexte:
 - Contraception: "${contraceptive || 'non précisé'}"
@@ -501,7 +550,7 @@ Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Le
 `.trim();
 
     try {
-      const response: GenerateContentResponse = await ai.models.generateContent({
+      const response: GenerateContentResponse = await (ai as GoogleGenAI).models.generateContent({
         model: 'gemini-1.5-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         config: { responseMimeType: 'application/json', temperature: 0.2 },
@@ -519,10 +568,43 @@ Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Le
 
       const body = stripCodeFences(rawText);
       let parsed: InteractionResult | null = tryParseJsonLoose(body);
-
       if (!parsed?.interactionLevel) {
         addBotMessage("Réponse incomplète. Peux-tu préciser la forme/marque exacte du produit ?");
         return;
+      }
+
+      // ---- Filet de sécurité si IA dit "inconnu" mais ressemble à un inducteur connu
+      const looksLike = (needle: string) =>
+        similar(product, needle) || deburr(product).includes(deburr(needle));
+
+      if (parsed.interactionLevel === 'inconnu') {
+        if (looksLike('millepertuis') || looksLike('hypericum')) {
+          const forced = LOCAL_KB['millepertuis (Hypericum perforatum)'];
+          if (forced) {
+            parsed = {
+              ...forced,
+              explanation: `${forced.explanation} (détection tolérante aux fautes et marques).`,
+            };
+          }
+        }
+        if (looksLike('rifampicine') || looksLike('rifampin')) {
+          const forced = LOCAL_KB['rifampicine'];
+          if (forced) {
+            parsed = {
+              ...forced,
+              explanation: `${forced.explanation} (détection tolérante aux fautes et marques).`,
+            };
+          }
+        }
+        if (looksLike('charbon') || looksLike('activated charcoal')) {
+          const forced = LOCAL_KB['charbon activé'];
+          if (forced) {
+            parsed = {
+              ...forced,
+              explanation: `${forced.explanation} (détection tolérante aux fautes et marques).`,
+            };
+          }
+        }
       }
 
       const adapted = adaptAnalysisToContext(parsed);
@@ -564,7 +646,7 @@ Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Le
                   <span className="level-emoji" aria-hidden>
                     {badgeMeta(msg.analysis.interactionLevel).emoji}
                   </span>
-                  <span className={`icon level-icon`}>{getStatusIcon(msg.analysis.interactionLevel)}</span>
+                  <span className="icon level-icon">{getStatusIcon(msg.analysis.interactionLevel)}</span>
                   <div className="header-text">
                     <h4>
                       Niveau d'interaction : {badgeMeta(msg.analysis.interactionLevel).label}
@@ -573,13 +655,12 @@ Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Le
                   </div>
                 </div>
 
-                {/* Contraception context note */}
                 {(intakeTime?.toLowerCase().includes('diffusion') ||
                   /implant|anneau|patch|stérilet|sterilet/i.test(contraceptive || '')) && (
                   <div className="analysis-section hint">
                     <strong>Contexte :</strong>{' '}
                     <span>
-                      Ta contraception est à diffusion continue. Les recommandations tiennent compte de ce mode d’action. ✨
+                      Ta contraception est à diffusion continue. Les recommandations en tiennent compte. ✨
                     </span>
                   </div>
                 )}
