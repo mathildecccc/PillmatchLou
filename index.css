@@ -1,3 +1,4 @@
+/* ==== YOUR BASE CSS (unchanged) ==== */
 body {
   margin: 0;
   font-family:
@@ -202,7 +203,6 @@ header {
   animation-delay: -10s;
 }
 
-
 @keyframes float {
   0% {
     transform: translateY(0px) rotate(0deg) scale(1);
@@ -217,7 +217,6 @@ header {
     border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   }
 }
-
 
 .messages-list {
   flex-grow: 1;
@@ -331,11 +330,11 @@ header {
 }
 
 .error-banner {
-    background-color: var(--accent-red);
-    color: white;
-    padding: 0.5rem;
-    text-align: center;
-    font-size: 14px;
+  background-color: var(--accent-red);
+  color: white;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 14px;
 }
 
 .analysis-card {
@@ -414,9 +413,10 @@ header {
 .sources a:hover {
   text-decoration: underline;
 }
-/* ==== PillMatch additions (à coller en bas) ==== */
 
-/* Header enrichi */
+/* ==== ADDITIONS FOR NEW HEADER/TAGLINE/EXAMPLES/FLAGS ==== */
+
+/* Header component classes */
 .pm-header { background: var(--header-bg); }
 .pm-header__inner {
   max-width: 980px;
@@ -428,7 +428,7 @@ header {
   margin: 0;
   font-weight: 700;
   letter-spacing: .4px;
-  color: #d83c7d; /* un rose un peu plus soutenu pour du contraste */
+  color: #d83c7d; /* slightly deeper than accent-rose for contrast */
 }
 .pm-tagline {
   margin: 6px 0 0;
@@ -438,7 +438,7 @@ header {
 }
 .pm-tagline__addon { font-weight: 600; }
 
-/* Chips d’exemples sous le header */
+/* Example chips below header */
 .pm-examples {
   max-width: 980px;
   margin: 8px auto 12px;
@@ -458,7 +458,7 @@ header {
 }
 .pm-examples button:hover { background: #ffc9db; }
 
-/* Encarts “contexte” et “red flag” dans la carte d’analyse */
+/* Hint + redflag boxes inside analysis card */
 .analysis-section.hint {
   background: #fff6fa;
   border: 1px dashed #f2b6cc;
@@ -473,7 +473,7 @@ header {
 }
 .analysis-section.redflag ul { margin: 6px 0 0 18px; }
 
-/* Petite ligne vie privée */
+/* Privacy line */
 .pm-privacy {
   text-align: center;
   font-size: .85rem;
@@ -482,7 +482,7 @@ header {
   margin: 12px 0 24px;
 }
 
-/* Tweaks mobile */
+/* Mobile tweaks for the new bits */
 @media (max-width: 600px) {
   .pm-header__inner { padding: 14px 12px 8px; }
   .pm-title { font-size: 20px; }
