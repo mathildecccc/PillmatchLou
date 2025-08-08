@@ -4,7 +4,7 @@
 */
 import React, { useEffect, useRef, useState } from "react";
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-// ❌ Removed Header import to avoid double rendering
+// ❌ Pas de Header ici pour éviter les doublons
 // import Header from "../../Header";
 
 import { useUser, useUI } from "@/lib/state";
@@ -283,8 +283,12 @@ export default function KeynoteCompanion() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [conversationStage, setConversationStage] = useState<ConversationStage>("GREETING");
+  const [conversationStage, setConversationStage] =
+    useState<ConversationStage>("GREETING");
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+
+  // ✅ Évite la perte du message de bienvenue en cas de remount/rerender
+  const greetedRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -292,22 +296,31 @@ export default function KeynoteCompanion() {
   useEffect(scrollToBottom, [messages, isBotTyping]);
 
   useEffect(() => {
-    if (conversationStage === "GREETING") {
-      setIsBotTyping(true);
-      setTimeout(() => {
-        addBotMessage("Bonjour ! Je suis Lou, ton assistante personnelle de santé 🤝");
-        setTimeout(() => {
-          addBotMessage("Quelle contraception utilises-tu, et à quelle heure tu la prends ? (ou dis-moi si c’est une diffusion continue) ⏰");
-          setIsBotTyping(false);
-          setConversationStage("AWAITING_CONTRACEPTION");
-        }, 900);
-      }, 450);
-    }
+    if (greetedRef.current) return;
+    greetedRef.current = true;
+
+    setIsBotTyping(true);
+    const t1 = setTimeout(() => {
+      addBotMessage("Bonjour ! Je suis Lou, ton assistante personnelle de santé 🤝");
+      const t2 = setTimeout(() => {
+        addBotMessage(
+          "Quelle contraception utilises-tu, et à quelle heure tu la prends ? (ou dis-moi si c’est une diffusion continue) ⏰"
+        );
+        setIsBotTyping(false);
+        setConversationStage("AWAITING_CONTRACEPTION");
+      }, 900);
+      return () => clearTimeout(t2);
+    }, 450);
+
+    return () => clearTimeout(t1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function addBotMessage(text: string, analysis?: InteractionResult) {
-    setMessages((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, sender: "bot", text, analysis }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random()}`, sender: "bot", text, analysis },
+    ]);
   }
   function addUserMessage(text: string) {
     const m: Message = { id: `${Date.now()}-${Math.random()}`, sender: "user", text };
@@ -329,7 +342,9 @@ export default function KeynoteCompanion() {
       const isContinuous =
         /diffusion continue|implant|stérilet|sterilet|patch|anneau/i.test(currentUserInput);
 
-      const timeMatch = currentUserInput.match(/(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/i);
+      const timeMatch = currentUserInput.match(
+        /(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/i
+      );
       const timeText = timeMatch ? `${timeMatch[1]}h${timeMatch[2] ? timeMatch[2] : ""}` : "";
 
       let brandRaw = currentUserInput
@@ -368,31 +383,7 @@ export default function KeynoteCompanion() {
         return;
       }
 
-      if (!brand && timeText && contraceptive && !intakeTime) {
-        setIntakeTime(timeText);
-        setTimeout(() => {
-          addBotMessage(`Parfait, c’est noté : ${contraceptive} à ${timeText} ✅`);
-          setTimeout(() => {
-            addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ? 🌿💊");
-            setIsBotTyping(false);
-            setConversationStage("AWAITING_PRODUCT");
-          }, 450);
-        }, 250);
-        return;
-      }
-      if (brand && !timeText && !contraceptive && intakeTime) {
-        setContraceptive(brand);
-        setTimeout(() => {
-          addBotMessage(`Parfait, c’est noté : ${brand} à ${intakeTime} ✅`);
-          setTimeout(() => {
-            addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ? 🌿💊");
-            setIsBotTyping(false);
-            setConversationStage("AWAITING_PRODUCT");
-          }, 450);
-        }, 250);
-        return;
-      }
-
+      // ✅ Branching plus sûr : pas de phrase avec marque vide
       if (brand && timeText) {
         setContraceptive(brand);
         setIntakeTime(timeText);
@@ -425,11 +416,15 @@ export default function KeynoteCompanion() {
         return;
       }
 
-      setTimeout(() => {
-        addBotMessage("Tu peux me dire la marque/type de ta contraception ET l’heure de prise ? Par ex. : Leeloo à 8h, Optilova à 20h, ou implant (diffusion continue).");
-        setIsBotTyping(false);
-      }, 250);
-      return;
+      if (!brand && !timeText) {
+        setTimeout(() => {
+          addBotMessage(
+            "Tu peux me dire la marque/type de ta contraception ET l’heure de prise ? Par ex. : Leeloo à 8h, Optilova à 20h, ou implant (diffusion continue)."
+          );
+          setIsBotTyping(false);
+        }, 250);
+        return;
+      }
     }
 
     if (conversationStage === "AWAITING_PRODUCT") {
@@ -571,15 +566,13 @@ Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Le
   // ---------------- Render ----------------
   return (
     <div className="pm-app">
-      {/* ✅ Header is rendered elsewhere (e.g., App.tsx). No duplicate here. */}
+      {/* Header rendu ailleurs (ex: App.tsx) */}
 
       {!ai && (
         <div className="error-banner">
           Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY). L'application ne peut pas fonctionner.
         </div>
       )}
-
-      {/* ❌ Removed example chips to avoid clickable blocks & duplication */}
 
       <div className="messages-list">
         {messages.map((msg) => (
@@ -699,3 +692,4 @@ Utilise des sources publiques fiables (ANSM, EMA, Vidal, DrugBank, NHS, BNF). Le
     </div>
   );
 }
+
