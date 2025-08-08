@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
 import { useUser, useUI } from '@/lib/state';
 
+// -------------- API KEY --------------
 const API_KEY =
   import.meta.env.VITE_API_KEY ||
   import.meta.env.VITE_GEMINI_API_KEY ||
@@ -17,6 +18,7 @@ if (API_KEY) {
   ai = new GoogleGenAI({ apiKey: API_KEY });
 }
 
+// -------------- Types --------------
 type ConversationStage =
   | 'GREETING'
   | 'AWAITING_CONTRACEPTION'
@@ -44,7 +46,7 @@ type InteractionResult = {
   };
 };
 
-// ---------- Normalisation produit + KB locale ----------
+// -------------- Normalisation produit + KB locale --------------
 function normalizeProduct(raw: string): { canonical: string; synonyms: string[] } {
   const s = raw.toLowerCase().trim();
 
@@ -57,6 +59,8 @@ function normalizeProduct(raw: string): { canonical: string; synonyms: string[] 
     { canonical: 'charbon activé', synonyms: ['charbon', 'charbon active', 'charcoal', 'activated charcoal'] },
     { canonical: 'lévothyroxine', synonyms: ['levothyrox', 'lévothyrox', 'levothyroxine', 'levothyrox®'] },
     { canonical: 'amoxicilline', synonyms: ['amoxicilline', 'amoxicillin'] },
+    { canonical: 'vitamine c (acide ascorbique)', synonyms: ['vitamine c', 'acide ascorbique', 'vit c'] },
+    { canonical: 'collagène', synonyms: ['collagene', 'cure collagène', 'luxéol 3 mois', 'luxeol'] },
   ];
 
   for (const row of table) {
@@ -72,49 +76,45 @@ const LOCAL_KB: Record<string, KBItem> = {
     interactionLevel: 'faible',
     title: "Fer et contraception hormonale : pas d'interaction cliniquement significative",
     explanation:
-      "Le fer est un minéral absorbé au niveau intestinal et n’induit pas les enzymes hépatiques impliquées dans le métabolisme des estroprogestatifs. Il n’altère donc pas l’efficacité contraceptive.",
+      "Le fer est absorbé dans l’intestin et n’active pas les enzymes du foie qui éliminent les hormones de la pilule. Il ne réduit donc pas l’efficacité contraceptive.",
     scientificBasis:
-      "Basé sur la littérature pharmacologique et l’absence de signal d’interaction dans les bases majeures (ANSM, Vidal, DrugBank).",
+      "Basé sur la littérature pharmacologique et l’absence de signal d’interaction dans ANSM, Vidal et DrugBank.",
     sources: [
       { name: 'ANSM – Monographies', url: 'https://ansm.sante.fr' },
       { name: 'Vidal – Interactions', url: 'https://www.vidal.fr' },
       { name: 'DrugBank – Ferrous sulfate', url: 'https://go.drugbank.com' },
     ],
-    contraceptionImpact:
-      "Aucun effet attendu sur les voies CYP métabolisant les hormones de la pilule.",
+    contraceptionImpact: "Aucun effet attendu sur les voies métaboliques des estroprogestatifs.",
     recommendation: {
-      timing:
-        "Aucun espacement nécessaire pour la contraception. Tu peux espacer pour optimiser l’absorption du fer ou le confort digestif.",
+      timing: "Aucun espacement nécessaire pour la contraception. Tu peux espacer si tu veux optimiser l’absorption du fer (éviter café/thé juste avant).",
       alternative: '',
     },
   },
-
   'millepertuis (Hypericum perforatum)': {
     interactionLevel: 'grave',
-    title: "Millepertuis et contraception : interaction majeure (induction CYP3A4)",
+    title: "Millepertuis et contraception : interaction majeure",
     explanation:
-      "Le millepertuis induit CYP3A4 et la P-gp, ce qui accélère la dégradation des estroprogestatifs et peut réduire l’efficacité contraceptive.",
-    scientificBasis: 'Interaction bien documentée par les agences et la littérature.',
+      "Le millepertuis active des systèmes d’élimination des médicaments (CYP3A4, P-gp). Les hormones de la pilule sont éliminées plus vite → efficacité réduite.",
+    scientificBasis: 'Interaction bien documentée (alertes officielles).',
     sources: [
       { name: 'ANSM – Avertissements Millepertuis', url: 'https://ansm.sante.fr' },
       { name: 'EMA – Herbal monograph: St John’s wort', url: 'https://www.ema.europa.eu' },
     ],
     contraceptionImpact:
-      "Diminution des taux plasmatiques hormonaux → risque de grossesse.",
+      "Baisse des taux hormonaux → risque de grossesse.",
     recommendation: {
       timing:
-        "Évite l’association. Si déjà pris, méthode barrière pendant l’utilisation et 2 semaines après l’arrêt.",
+        "Évite l’association. Si déjà pris, utilises une méthode barrière pendant le traitement et 2 semaines après l’arrêt.",
       alternative:
-        "Privilégie des options non inductrices pour l’humeur/sommeil (ex. mélatonine courte durée, magnésium), à valider avec un pro de santé.",
+        "Préférer des options non inductrices pour l’humeur/sommeil (ex. magnésium, mélatonine courte durée) — à valider avec un pro de santé.",
     },
   },
-
   rifampicine: {
     interactionLevel: 'grave',
-    title: 'Rifampicine et contraception : interaction majeure (inducteur CYP3A4)',
+    title: 'Rifampicine et contraception : interaction majeure',
     explanation:
-      "La rifampicine est un puissant inducteur enzymatique, diminuant fortement les concentrations d’ethinylestradiol/progestatifs.",
-    scientificBasis: 'Interaction classique bien connue.',
+      "Puissant inducteur enzymatique : les concentrations d’ethinylestradiol/progestatifs chutent fortement.",
+    scientificBasis: 'Interaction classique, bien connue.',
     sources: [
       { name: 'ANSM – Rifampicine', url: 'https://ansm.sante.fr' },
       { name: 'Vidal – Interactions rifampicine', url: 'https://www.vidal.fr' },
@@ -122,17 +122,16 @@ const LOCAL_KB: Record<string, KBItem> = {
     contraceptionImpact: 'Risque élevé d’échec contraceptif.',
     recommendation: {
       timing:
-        "Éviter avec pilules classiques. Utiliser une méthode alternative (DIU, injectable) ou double protection pendant et 4 semaines après.",
+        "Éviter avec les pilules classiques. Utiliser une méthode alternative (DIU, injectable) ou double protection durant et 4 semaines après.",
       alternative:
-        "Méthodes moins dépendantes du CYP (DIU cuivre/hormonal). À discuter avec un pro.",
+        "Méthodes moins dépendantes du CYP (DIU cuivre/hormonal) — à discuter avec un pro.",
     },
   },
-
   'paracétamol': {
     interactionLevel: 'faible',
     title: "Paracétamol et contraception : pas d'interaction significative",
     explanation:
-      "Aux doses usuelles, le paracétamol n’induit ni n’inhibe significativement les voies métaboliques des estroprogestatifs.",
+      "Aux doses usuelles, le paracétamol ne modifie pas significativement l’élimination des hormones de la pilule.",
     scientificBasis: 'Consensus monographies et bases d’interactions.',
     sources: [
       { name: 'ANSM – Paracétamol', url: 'https://ansm.sante.fr' },
@@ -144,25 +143,49 @@ const LOCAL_KB: Record<string, KBItem> = {
       alternative: '',
     },
   },
-
   'charbon activé': {
     interactionLevel: 'moyen',
     title: 'Charbon activé et contraception : possible réduction de l’absorption',
     explanation:
-      "Le charbon peut adsorber des substances dans l’intestin et diminuer l’absorption s’il est pris très proche de la pilule.",
+      "Le charbon adsorbe des molécules dans l’intestin. Pris trop près de la pilule, il peut en diminuer l’absorption.",
     scientificBasis: 'Principe d’adsorption intestinal documenté.',
     sources: [{ name: 'ANSM – Charbon activé', url: 'https://ansm.sante.fr' }],
-    contraceptionImpact: 'Risque de moindre absorption si prise concomitante.',
+    contraceptionImpact: 'Risque de moindre absorption si prises concomitantes.',
     recommendation: {
       timing:
-        'Espace d’au moins 3 à 4 heures avec la pilule. Si prise rapprochée, méthode barrière 7 jours.',
+        'Espace d’au moins 3 à 4 heures avec la pilule. Si prises trop proches, utilise une méthode barrière 7 jours.',
       alternative: '',
     },
   },
+  'vitamine c (acide ascorbique)': {
+    interactionLevel: 'faible',
+    title: "Vitamine C et contraception : pas d'interaction significative",
+    explanation:
+      "Aux doses usuelles, la vitamine C n’induit ni n’inhibe de façon notable les voies métaboliques des estroprogestatifs.",
+    scientificBasis: 'Absence de signal d’interaction dans les bases majeures.',
+    sources: [
+      { name: 'ANSM – Vitamine C', url: 'https://ansm.sante.fr' },
+      { name: 'Vidal – Vitamine C', url: 'https://www.vidal.fr' },
+    ],
+    contraceptionImpact: 'Aucun impact significatif attendu sur l’efficacité.',
+    recommendation: { timing: 'Aucun espacement nécessaire.', alternative: '' },
+  },
+  'collagène': {
+    interactionLevel: 'faible',
+    title: "Collagène et contraception : pas d'interaction attendue",
+    explanation:
+      "Le collagène est une protéine (ou peptides) sans effet inducteur/inhibiteur documenté sur le métabolisme des hormones de la pilule.",
+    scientificBasis: 'Absence de signal d’interaction dans la littérature et bases.',
+    sources: [
+      { name: 'ANSM – Compléments', url: 'https://ansm.sante.fr' },
+      { name: 'Vidal – Compléments', url: 'https://www.vidal.fr' },
+    ],
+    contraceptionImpact: 'Impact négligeable attendu.',
+    recommendation: { timing: 'Pas de contrainte particulière.', alternative: '' },
+  },
 };
 
-// ------------------------------------------------------
-
+// -------------- Composant --------------
 export default function PillMatchChat() {
   const { contraceptive, intakeTime, setContraceptive, setIntakeTime } = useUser();
   const { isBotTyping, setIsBotTyping } = useUI();
@@ -212,6 +235,7 @@ export default function PillMatchChat() {
     return newUserMessage;
   };
 
+  // ----------- Envoi message -----------
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim() || isBotTyping) return;
@@ -355,7 +379,7 @@ export default function PillMatchChat() {
     }
   };
 
-  // -------- helpers parsing Gemini --------
+  // -------- Helpers parsing JSON Gemini --------
   function stripCodeFences(s: string) {
     const fenceRegex = /^```(?:json)?\s*([\s\S]*?)\s*```$/i;
     const m = s.match(fenceRegex);
@@ -366,7 +390,7 @@ export default function PillMatchChat() {
     try {
       return JSON.parse(txt);
     } catch {
-      const fixed = txt.replace(/,\s*([}\]])/g, '$1');
+      const fixed = txt.replace(/,\s*([}\]])/g, '$1'); // trailing commas
       try {
         return JSON.parse(fixed);
       } catch {
@@ -375,13 +399,14 @@ export default function PillMatchChat() {
     }
   }
 
+  // ---------- Appel IA + KB ----------
   const handleCheckInteraction = async (product: string) => {
     if (!product?.trim()) {
-      addBotMessage('Peux-tu me donner le nom du médicament/complément à vérifier ?');
+      addBotMessage('Peux-tu me donner le nom du médicament ou complément à vérifier ?');
       return;
     }
 
-    // Normalisation + KB locale
+    // 1) KB locale (réponse instant)
     const norm = normalizeProduct(product);
     const canonical = norm.canonical;
     const kbHit = LOCAL_KB[canonical];
@@ -390,44 +415,49 @@ export default function PillMatchChat() {
       return;
     }
 
+    // 2) IA si pas dans la KB
     if (!ai) {
       addBotMessage(
-        'Désolée, je ne peux pas effectuer de vérification pour le moment. Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY).'
+        'Désolée, je ne peux pas faire la vérification pour le moment. Clé API manquante (VITE_API_KEY / VITE_GEMINI_API_KEY).'
       );
       return;
     }
 
+    // Prompt orienté pédagogie (verdict clair + conseil)
     const prompt = `
-Tu es "Lou", assistante santé. Analyse l'interaction entre une contraception hormonale et un produit.
-
-CONTRAINTE: Réponds en UN SEUL objet JSON, sans Markdown, en français, en tutoyant, avec ce schéma:
+Tu es "Lou", une coach santé claire et rassurante. Tu analyses l'interaction entre une contraception hormonale et un produit.
+Réponds en UN SEUL objet JSON strict (pas de Markdown), en français, avec ce schéma :
 {
   "interactionLevel": "faible" | "moyen" | "grave" | "inconnu",
-  "title": "...",
-  "explanation": "...",
-  "scientificBasis": "...",
-  "sources": [ { "name": "...", "url": "https://..." } ],
-  "contraceptionImpact": "...",
-  "recommendation": { "timing": "...", "alternative": "..." }
+  "title": "verdict court et clair",
+  "explanation": "vulgarisation simple : 2-3 phrases max",
+  "scientificBasis": "phrase sur les sources utilisées",
+  "sources": [ { "name": "nom source", "url": "https://..." } ],
+  "contraceptionImpact": "impact concret sur la pilule (absorption, enzymes, etc.)",
+  "recommendation": {
+    "timing": "conseil pratique (ex : 'Aucun espacement nécessaire' / 'Espace de 3-4h')",
+    "alternative": "si risque moyen/élevé : produit(s) plus sûrs en France ; sinon chaîne vide"
+  }
 }
 
-Contexte utilisateur:
-- Contraception: "${contraceptive}"
-- Heure/méthode: "${intakeTime}"
+Contexte:
+- Contraception: "${contraceptive || 'non précisé'}"
+- Heure/méthode: "${intakeTime || 'non précisé'}"
 - Produit: "${canonical}"
 
-RÈGLES:
-- Inducteurs enzymatiques (ex: millepertuis, rifampicine) -> souvent "grave".
-- Adsorbants (charbon activé) -> "moyen" si prises concomitantes (séparer les prises).
-- Compléments minéraux comme le fer n’induisent/ n’inhibent pas le CYP3A4 -> généralement "faible".
-- Si la littérature ne signale pas d’interaction cliniquement significative, préfère "faible" à "inconnu" et explique pourquoi.
-`.trim();
+Règles de décision rapides:
+- Inducteurs (millepertuis, rifampicine) → souvent "grave", expliquer simplement.
+- Adsorbants (charbon activé) → "moyen" si prises concomitantes (séparer les prises).
+- Minéraux (fer) → "faible" sauf cas particuliers.
+- Si pas de signal d'interaction dans bases fiables → "faible" plutôt que "inconnu" (et explique pourquoi).
+- Toujours proposer un conseil d'usage concret dans "recommendation.timing".
+    `.trim();
 
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-1.5-flash',
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { responseMimeType: 'application/json', temperature: 0.3 },
+        config: { responseMimeType: 'application/json', temperature: 0.2 },
       });
 
       const rawText =
@@ -461,6 +491,7 @@ RÈGLES:
     }
   };
 
+  // ---------- UI helpers ----------
   const getStatusIcon = (level: InteractionResult['interactionLevel']) => {
     switch (level) {
       case 'faible':
@@ -475,6 +506,7 @@ RÈGLES:
     }
   };
 
+  // -------------- Render --------------
   return (
     <div className="chat-container">
       <div className="lou-character-container">
