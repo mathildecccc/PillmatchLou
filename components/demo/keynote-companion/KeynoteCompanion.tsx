@@ -16,10 +16,10 @@ if (API_KEY) {
 type ConversationStage = 'GREETING' | 'AWAITING_CONTRACEPTION' | 'AWAITING_PRODUCT' | 'PROCESSING' | 'DONE';
 
 type Message = {
-    id: string;
-    sender: 'bot' | 'user';
-    text?: string;
-    analysis?: InteractionResult;
+  id: string;
+  sender: 'bot' | 'user';
+  text?: string;
+  analysis?: InteractionResult;
 };
 
 type InteractionResult = {
@@ -35,7 +35,6 @@ type InteractionResult = {
   };
 };
 
-
 export default function PillMatchChat() {
   const { contraceptive, intakeTime, setContraceptive, setIntakeTime } = useUser();
   const { isBotTyping, setIsBotTyping } = useUI();
@@ -48,7 +47,6 @@ export default function PillMatchChat() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
   useEffect(scrollToBottom, [messages, isBotTyping]);
 
   useEffect(() => {
@@ -57,9 +55,9 @@ export default function PillMatchChat() {
       setTimeout(() => {
         addBotMessage("Bonjour ! Je suis Lou, ton assistante personnelle de santé.");
         setTimeout(() => {
-            addBotMessage("Quelle contraception hormonale utilises-tu et à quelle heure la prends-tu (ou est-ce une diffusion continue) ?");
-            setIsBotTyping(false);
-            setConversationStage('AWAITING_CONTRACEPTION');
+          addBotMessage("Quelle contraception hormonale utilises-tu et à quelle heure la prends-tu (ou est-ce une diffusion continue) ?");
+          setIsBotTyping(false);
+          setConversationStage('AWAITING_CONTRACEPTION');
         }, 1200);
       }, 1000);
     }
@@ -80,205 +78,248 @@ export default function PillMatchChat() {
     if (!inputValue.trim() || isBotTyping) return;
 
     addUserMessage(inputValue);
-    const currentUserInput = inputValue;
+    const currentUserInput = inputValue.trim();
     setInputValue('');
 
-if (conversationStage === 'AWAITING_CONTRACEPTION') {
-  setIsBotTyping(true);
+    if (conversationStage === 'AWAITING_CONTRACEPTION') {
+      setIsBotTyping(true);
 
-  const isContinuous = /diffusion continue|implant|stérilet|patch|anneau/i.test(currentUserInput);
-  const knownBrands = ["optilova", "minidril", "leeloo", "jasminelle", "desogestrel", "nora", "optimizette", "trinordiol"];
-  const hastimeTime = /([01]?[0-9]|2[0-3])h|à\s?[0-9]{1,2}/i.test(currentUserInput);
-  const matchedBrand = knownBrands.find(brand => currentUserInput.toLowerCase().includes(brand));
-  const isIDK = /je ne sais pas|aucune idée|pas sûr|pas certaine/i.test(currentUserInput);
+      const isContinuous = /diffusion continue|implant|stérilet|sterilet|patch|anneau/i.test(currentUserInput);
 
+      // 1) Heure : "à 8h", "8 h", "07h30", "vers 20h", etc.
+      const timeMatch = currentUserInput.match(
+        /(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/i
+      );
+      const timeText = timeMatch ? `${timeMatch[1]}h${timeMatch[2] ? timeMatch[2] : ''}` : '';
 
-if (isContinuous) {
-  setContraceptive(currentUserInput.trim());
-  setIntakeTime("Diffusion continue");
+      // 2) "Marque/type" = texte - heure - mots parasites
+      let brandRaw = currentUserInput
+        .replace(/(?:\b(?:à|a|@|vers)\s*)?([01]?\d|2[0-3])\s*h(?:([0-5]\d))?/gi, '') // enlève l'heure
+        .replace(/\bet\b/gi, ' ')
+        .replace(/[,\.;:]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-  setTimeout(() => {
-    addBotMessage("Merci, tu utilises donc une contraception à diffusion continue. C’est bien noté !");
-    setTimeout(() => {
-      addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
-      setIsBotTyping(false);
-      setConversationStage('AWAITING_PRODUCT');
-    }, 1000);
-  }, 1000);
+      // 3) Normalisation (complète la map au besoin)
+      const normalizeMap: Record<string, string> = {
+        'ludeal g': 'Ludéal Gé',
+        'ludeal ge': 'Ludéal Gé',
+        'ludeal': 'Ludéal Gé',
+        'leeloo': 'Leeloo',
+        'optilova': 'Optilova',
+        'minidril': 'Minidril',
+        'jasminelle': 'Jasminelle',
+        'desogestrel': 'Désogestrel',
+        'optimizette': 'Optimizette',
+        'trinordiol': 'Trinordiol',
+      };
+      const key = brandRaw.toLowerCase();
+      const brand = normalizeMap[key] || brandRaw;
 
-} else if (matchedBrand && hastimeTime) {
-  const isUncertain = /je\s?(ne)?\s?sais\s?pas|je crois|je pense|pas\s?(sûr|sûre)|aucune idée/i.test(currentUserInput.toLowerCase());
-  const parts = currentUserInput.split(/(?:\s+à\s+|@|at|vers)\s*/i);
-  setContraceptive(parts[0].trim());
-  setIntakeTime(parts[1] ? parts[1].trim() : '');
+      if (isContinuous) {
+        setContraceptive(brand || 'Contraception à diffusion continue');
+        setIntakeTime('Diffusion continue');
+        setTimeout(() => {
+          addBotMessage("Merci, tu utilises donc une contraception à diffusion continue. C’est bien noté !");
+          setTimeout(() => {
+            addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
+            setIsBotTyping(false);
+            setConversationStage('AWAITING_PRODUCT');
+          }, 800);
+        }, 600);
+        return;
+      }
 
-  setTimeout(() => {
-    addBotMessage("Parfait, c’est noté !");
-    setTimeout(() => {
-      addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
-      setIsBotTyping(false);
-      setConversationStage('AWAITING_PRODUCT');
-    }, 1000);
-  }, 1000);
+      if (brand && timeText) {
+        setContraceptive(brand);
+        setIntakeTime(timeText);
+        setTimeout(() => {
+          addBotMessage(`Parfait, c’est noté : **${brand}** à **${timeText}** ✅`);
+          setTimeout(() => {
+            addBotMessage("Quel médicament, complément ou plante souhaites-tu vérifier ?");
+            setIsBotTyping(false);
+            setConversationStage('AWAITING_PRODUCT');
+          }, 800);
+        }, 600);
+        return;
+      }
 
-} else {
-    setTimeout(() => {
-addBotMessage("Tu peux me dire quelle contraception tu utilises, et à quelle heure tu la prends ? Par exemple : _Leeloo à 8h_, _Optilova à 20h_, ou juste me dire si c’est une diffusion continue 🌸");
+      if (brand && !timeText) {
+        setTimeout(() => {
+          addBotMessage(`Super, tu utilises **${brand}**. Peux-tu me dire **à quelle heure** tu la prends ? (ex : 8h ou 20h)`);
+          setIsBotTyping(false);
+        }, 600);
+        return;
+      }
+
+      if (!brand && timeText) {
+        setTimeout(() => {
+          addBotMessage(`Merci ! Et peux-tu me préciser **la marque** ou **le type** de ta contraception ? (ex : Leeloo, Optilova, implant, etc.)`);
+          setIsBotTyping(false);
+        }, 600);
+        return;
+      }
+
+      setTimeout(() => {
+        addBotMessage("Tu peux me dire **la marque/type** de ta contraception **et** l’**heure** de prise ? Par ex. : _Leeloo à 8h_, _Optilova à 20h_, ou _implant (diffusion continue)_.");
         setIsBotTyping(false);
-    }, 1000);
-}
+      }, 600);
+      return;
+    }
 
- } else if (conversationStage === 'AWAITING_PRODUCT') {
-    setConversationStage('PROCESSING');
-    setIsBotTyping(true);
-    await handleCheckInteraction(currentUserInput);
-    setIsBotTyping(false);
-    setConversationStage('AWAITING_PRODUCT'); // Ready for next check
-  }
-};
+    if (conversationStage === 'AWAITING_PRODUCT') {
+      setConversationStage('PROCESSING');
+      setIsBotTyping(true);
+      await handleCheckInteraction(currentUserInput);
+      setIsBotTyping(false);
+      setConversationStage('AWAITING_PRODUCT'); // prêt pour la suite
+      return;
+    }
+  };
 
   const handleCheckInteraction = async (product: string) => {
     if (!ai) {
-        addBotMessage("Désolée, je ne peux pas effectuer de vérification pour le moment. La configuration de l'API est manquante.");
-        return;
+      addBotMessage("Désolée, je ne peux pas effectuer de vérification pour le moment. La configuration de l'API est manquante.");
+      return;
     }
 
     const prompt = `
-    You are "Lou", a warm and reassuring chatbot assistant. Your goal is to guide the user in understanding interactions between their hormonal contraception and other products.
-    The user's data is:
-    - Contraception: "${contraceptive}"
-    - Intake Time/Method: "${intakeTime}"
-    - Product to check: "${product}"
+You are "Lou", a warm and reassuring chatbot assistant. Your goal is to guide the user in understanding interactions between their hormonal contraception and other products.
+The user's data is:
+- Contraception: "${contraceptive}"
+- Intake Time/Method: "${intakeTime}"
+- Product to check: "${product}"
 
-    Your task is to provide a detailed, scientifically-backed analysis. Your response MUST be a single, valid JSON object, with no markdown formatting (like \`\`\`json).
+Your task is to provide a detailed, scientifically-backed analysis. Your response MUST be a single, valid JSON object, with no markdown formatting.
 
-    The JSON object structure is:
-    {
-      "interactionLevel": "faible" | "moyen" | "grave" | "inconnu",
-      "title": "A short summary of the interaction level with the product name.",
-      "explanation": "A simple, easy-to-understand explanation of why there is or isn't an interaction. Use scientific popularization.",
-      "scientificBasis": "A sentence stating the source of your information, like 'This analysis is based on data from the French National Agency for the Safety of Medicines (ANSM) and the DrugBank database.'",
-      "sources": [
-        { "name": "Name of the source (e.g., ANSM, Vidal, DrugBank)", "url": "A direct URL to the relevant information if possible, otherwise to the main site. Must be a real, verifiable URL." }
-      ],
-      "contraceptionImpact": "Specifically explain how this product can affect the user's contraception. For example, by affecting liver enzymes, reducing absorption, etc.",
-      "recommendation": {
-        "timing": "Provide clear advice on timing. For example, 'It is advisable to wait at least X hours between taking your pill and this product.' or 'No specific timing is needed.'",
-        "alternative": "If there is a medium or severe risk, suggest a safer alternative product. Preferably a common French brand. Explain why it is safer. For example, 'For pain relief, Paracetamol (like Doliprane) is a safer alternative as it does not typically interact with hormonal contraceptives.'"
-      }
-    }
+The JSON object structure is:
+{
+  "interactionLevel": "faible" | "moyen" | "grave" | "inconnu",
+  "title": "A short summary of the interaction level with the product name.",
+  "explanation": "A simple, easy-to-understand explanation of why there is or isn't an interaction. Use scientific popularization. Write in French and use 'tu'.",
+  "scientificBasis": "A sentence stating the source of your information, like 'This analysis is based on data from the French National Agency for the Safety of Medicines (ANSM) and the DrugBank database.'",
+  "sources": [
+    { "name": "Name of the source (e.g., ANSM, Vidal, DrugBank)", "url": "A direct URL to the relevant information if possible, otherwise to the main site. Must be a real, verifiable URL." }
+  ],
+  "contraceptionImpact": "Specifically explain how this product can affect the user's contraception (enzymes CYP, absorption, etc.).",
+  "recommendation": {
+    "timing": "Provide clear advice on timing in French, or say 'Aucun espacement nécessaire'.",
+    "alternative": "If risk is medium or high, suggest a safer alternative commonly used in France."
+  }
+}
 
-    RULES:
-    1. MANDATORY: Base your analysis on verified, open-access scientific data (e.g., ANSM, EMA, Vidal, DrugBank, PubMed).
-    2. MANDATORY: You MUST provide the sources in the \`sources\` array.
-    3. Be reassuring and clear in your language, in French.
-    4. If no information is found, set \`interactionLevel\` to "inconnu" and explain that there is not enough data to be certain.
-    5. IMPORTANT: In all your French text explanations and recommendations, you MUST address the user with "tu" (informal you), not "vous".
-    `;
+RULES:
+1) Base your analysis on verified, open-access scientific data (ANSM, EMA, Vidal, DrugBank, PubMed).
+2) You MUST provide real sources in the 'sources' array.
+3) Be reassuring and clear in French. Use 'tu'.
+4) If no information is found, set 'interactionLevel' to "inconnu" and explain.
+`;
 
     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: { responseMimeType: "application/json" },
-        });
+      const response: GenerateContentResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { responseMimeType: "application/json" },
+      });
 
-        let jsonStr = response.text.trim();
-        const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
-        const match = jsonStr.match(fenceRegex);
-        if (match && match[2]) {
-            jsonStr = match[2].trim();
-        }
+      let jsonStr = response.text.trim();
+      // Si jamais Gemini renvoie des fences Markdown
+      const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+      const match = jsonStr.match(fenceRegex);
+      if (match && match[2]) {
+        jsonStr = match[2].trim();
+      }
 
-        const parsedResult: InteractionResult = JSON.parse(jsonStr);
-        addBotMessage("Merci d'avoir patienté. Voici l'analyse :", parsedResult);
-
+      const parsedResult: InteractionResult = JSON.parse(jsonStr);
+      addBotMessage("Merci d'avoir patienté. Voici l'analyse :", parsedResult);
     } catch (e) {
       console.error(e);
-      addBotMessage("Désolée, une erreur est survenue lors de l'analyse. Pourrais-tu essayer de reformuler ou de vérifier ta connexion ?");
+      addBotMessage("Désolée, une erreur est survenue lors de l'analyse. Peux-tu reformuler ou vérifier ta connexion ?");
     }
   };
-  
+
   const getStatusIcon = (level: InteractionResult['interactionLevel']) => {
     switch (level) {
-        case 'faible': return { icon: 'check_circle', label: 'Faible'};
-        case 'moyen': return { icon: 'warning', label: 'Moyen'};
-        case 'grave': return { icon: 'error', label: 'Élevé'};
-        case 'inconnu':
-        default: return { icon: 'help', label: 'Inconnu'};
+      case 'faible': return { icon: 'check_circle', label: 'Faible' };
+      case 'moyen': return { icon: 'warning', label: 'Moyen' };
+      case 'grave': return { icon: 'error', label: 'Élevé' };
+      case 'inconnu':
+      default: return { icon: 'help', label: 'Inconnu' };
     }
-  }
-
+  };
 
   return (
     <div className="chat-container">
-        <div className="lou-character-container">
-            <div className="lou-character lou-blob-1"></div>
-            <div className="lou-character lou-blob-2"></div>
-            <div className="lou-character lou-blob-3"></div>
-        </div>
-        {!ai && <div className="error-banner">Clé API GEMINI_API_KEY manquante. L'application ne peut pas fonctionner.</div>}
-        <div className="messages-list">
-            {messages.map(msg => (
-                <div key={msg.id} className={`message-bubble ${msg.sender === 'bot' ? 'bot-message' : 'user-message'}`}>
-                   {msg.text && <p>{msg.text}</p>}
-                   {msg.analysis && (
-                       <div className={`analysis-card level-${msg.analysis.interactionLevel}`}>
-                           <div className="analysis-header">
-                               <span className={`icon level-icon`}>{getStatusIcon(msg.analysis.interactionLevel).icon}</span>
-                               <div className="header-text">
-                                  <h4>Niveau d'interaction : {getStatusIcon(msg.analysis.interactionLevel).label}</h4>
-                                  <h5>{msg.analysis.title}</h5>
-                               </div>
-                           </div>
-                           <div className="analysis-section">
-                               <strong>Pourquoi ?</strong>
-                               <p>{msg.analysis.explanation}</p>
-                           </div>
-                           <div className="analysis-section">
-                               <strong>Impact sur ta contraception</strong>
-                               <p>{msg.analysis.contraceptionImpact}</p>
-                           </div>
-                           <div className="analysis-section recommendation">
-                               <strong><span className="icon">recommend</span> Recommandation</strong>
-                               <p>{msg.analysis.recommendation.timing}</p>
-                               {msg.analysis.recommendation.alternative && <p><strong>Alternative : </strong>{msg.analysis.recommendation.alternative}</p>}
-                           </div>
-                            <div className="analysis-section sources">
-                               <p><strong>Sources : </strong>{msg.analysis.scientificBasis}</p>
-                               <ul>
-                                   {msg.analysis.sources.map(source => (
-                                       <li key={source.name}>
-                                           <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>
-                                       </li>
-                                   ))}
-                               </ul>
-                           </div>
-                       </div>
-                   )}
+      <div className="lou-character-container">
+        <div className="lou-character lou-blob-1"></div>
+        <div className="lou-character lou-blob-2"></div>
+        <div className="lou-character lou-blob-3"></div>
+      </div>
+
+      {!ai && <div className="error-banner">Clé API VITE_API_KEY manquante. L'application ne peut pas fonctionner.</div>}
+
+      <div className="messages-list">
+        {messages.map(msg => (
+          <div key={msg.id} className={`message-bubble ${msg.sender === 'bot' ? 'bot-message' : 'user-message'}`}>
+            {msg.text && <p>{msg.text}</p>}
+            {msg.analysis && (
+              <div className={`analysis-card level-${msg.analysis.interactionLevel}`}>
+                <div className="analysis-header">
+                  <span className={`icon level-icon`}>{getStatusIcon(msg.analysis.interactionLevel).icon}</span>
+                  <div className="header-text">
+                    <h4>Niveau d'interaction : {getStatusIcon(msg.analysis.interactionLevel).label}</h4>
+                    <h5>{msg.analysis.title}</h5>
+                  </div>
                 </div>
-            ))}
-            {isBotTyping && (
-                <div className="message-bubble bot-message">
-                    <div className="typing-indicator">
-                        <span></span><span></span><span></span>
-                    </div>
+                <div className="analysis-section">
+                  <strong>Pourquoi ?</strong>
+                  <p>{msg.analysis.explanation}</p>
                 </div>
+                <div className="analysis-section">
+                  <strong>Impact sur ta contraception</strong>
+                  <p>{msg.analysis.contraceptionImpact}</p>
+                </div>
+                <div className="analysis-section recommendation">
+                  <strong><span className="icon">recommend</span> Recommandation</strong>
+                  <p>{msg.analysis.recommendation.timing}</p>
+                  {msg.analysis.recommendation.alternative && <p><strong>Alternative : </strong>{msg.analysis.recommendation.alternative}</p>}
+                </div>
+                <div className="analysis-section sources">
+                  <p><strong>Sources : </strong>{msg.analysis.scientificBasis}</p>
+                  <ul>
+                    {msg.analysis.sources.map(source => (
+                      <li key={source.name}>
+                        <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             )}
-            <div ref={messagesEndRef} />
-        </div>
-        <form className="chat-input-form" onSubmit={handleSendMessage}>
-            <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={isBotTyping ? "Lou est en train d'écrire..." : "Écris ton message..."}
-                disabled={isBotTyping || conversationStage === 'GREETING' || !ai}
-            />
-            <button type="submit" disabled={!inputValue.trim() || isBotTyping || !ai}>
-                <span className="icon">send</span>
-            </button>
-        </form>
+          </div>
+        ))}
+        {isBotTyping && (
+          <div className="message-bubble bot-message">
+            <div className="typing-indicator">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <form className="chat-input-form" onSubmit={handleSendMessage}>
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder={isBotTyping ? "Lou est en train d'écrire..." : "Écris ton message..."}
+          disabled={isBotTyping || conversationStage === 'GREETING' || !ai}
+        />
+        <button type="submit" disabled={!inputValue.trim() || isBotTyping || !ai}>
+          <span className="icon">send</span>
+        </button>
+      </form>
     </div>
   );
 }
