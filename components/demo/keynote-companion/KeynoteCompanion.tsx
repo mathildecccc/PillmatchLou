@@ -6,7 +6,11 @@ import { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { useUser, useUI } from '@/lib/state';
 
-const API_KEY = import.meta.env.VITE_API_KEY;
+const API_KEY =
+  import.meta.env.VITE_API_KEY ||
+  import.meta.env.VITE_GEMINI_API_KEY ||
+  import.meta.env.GEMINI_API_KEY ||
+  '';
 
 let ai: GoogleGenAI | null = null;
 if (API_KEY) {
